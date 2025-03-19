@@ -9,6 +9,7 @@ import DashboardLayout from './components/admin/DashboardLayout'
 import { UserDashboardLayout } from './components/user/DashboardLayout'
 import { Login } from './components/auth/Login'
 import SignUp from './components/auth/SignUp'
+import ForgotPassword from './components/auth/ForgotPassword'
 import App from './App'
 import AdminOverview from './components/admin/Overview'
 import UserOverview from './components/user/Overview'
@@ -30,6 +31,7 @@ import ImageVariations from './components/ImageVariations'
 import EasyVariation from './components/EasyVariation'
 import AdvancedVariation from './components/AdvancedVariation'
 import ImageCollection from './components/ImageCollection'
+import NotFound from './components/NotFound'
 import './index.css'
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
@@ -54,6 +56,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
           <Route element={<AuthRoute />}>
             <Route path="/login" element={<Login />} />
             <Route path="/signup" element={<SignUp />} />
+            <Route path="/forgot-password" element={<ForgotPassword />} />
           </Route>
 
           {/* Admin Routes */}
@@ -75,7 +78,10 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
           </Route>
 
           {/* App Routes */}
-          <Route path="/*" element={<App />} />
+          <Route path="/" element={<App />} />
+          
+          {/* 404 Route */}
+          <Route path="*" element={<NotFound />} />
         </Routes>
       </AuthProvider>
     </Router>

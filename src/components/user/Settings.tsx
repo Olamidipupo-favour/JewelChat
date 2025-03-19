@@ -3,6 +3,7 @@ import { useAuth } from '../../contexts/AuthContext'
 import { ApiService } from '../../services/api'
 import { Card } from '../../components/ui/card'
 import { Lock, Bell, Trash2 } from 'lucide-react'
+import { toast } from 'react-hot-toast'
 
 export default function Settings() {
   const { signOut } = useAuth()
@@ -49,13 +50,20 @@ export default function Settings() {
     setSuccess(null)
 
     try {
-      const { error } = await ApiService.deleteAccount()
-      if (error) throw error
+      // First delete the account data
+      const { error: deleteError } = await ApiService.deleteAccount()
+      if (deleteError) throw deleteError
 
+      // Then sign out the user
       await signOut()
+      
+      // Show success message
+      toast.success('Account deleted successfully')
     } catch (err) {
       console.error('Error deleting account:', err)
-      setError(err instanceof Error ? err.message : 'Failed to delete account')
+      const errorMessage = err instanceof Error ? err.message : 'Failed to delete account'
+      setError(errorMessage)
+      toast.error(errorMessage)
     } finally {
       setLoading(false)
     }

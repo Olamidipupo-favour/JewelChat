@@ -47,7 +47,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => subscription.unsubscribe()
   }, [])
 
-  async function fetchProfile(userId: string) {
+  async function fetchProfile(userId: string, email?: string) {
     console.log('4. Entering fetchProfile for user:', userId)
     const startTime = performance.now()
     try {
@@ -62,7 +62,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         .single()
 
       const timeoutPromise = new Promise<{ data: any; error: any }>((_, reject) => {
-        setTimeout(() => reject(new Error('Query timeout after 5 seconds')), 5000)
+        setTimeout(() => reject(new Error('Query timeout after 5 seconds')), 10000)
       })
 
       const result = await Promise.race([queryPromise, timeoutPromise])
@@ -76,16 +76,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (error.code === 'PGRST116') {
           console.log('Profile not found, creating new profile...')
           const insertStartTime = performance.now()
+          
+          // Get the current user's email if not provided
+          let userEmail = email
+          if (!userEmail) {
+            const { data: { user } } = await supabase.auth.getUser()
+            userEmail = user?.email
+          }
+
+          if (!userEmail) {
+            console.error('No email available for profile creation')
+            return
+          }
+
           const { error: insertError } = await supabase
             .from('users')
             .insert([
               {
                 id: userId,
-                email: user?.email,
+                email: userEmail,
                 role: 'user',
                 tokens: 0,
                 created_at: new Date().toISOString(),
                 updated_at: new Date().toISOString(),
+                is_active: true
               }
             ])
           const insertEndTime = performance.now()
@@ -207,8 +221,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       if (data.user) {
         console.log('4. Starting profile fetch...')
+        setUser(data.user)
         try {
-          await fetchProfile(data.user.id)
+          await fetchProfile(data.user.id, email)
           console.log('5. Profile fetch completed in signIn')
         } catch (err) {
           console.error('Error in signIn profile fetch:', err)
@@ -225,8 +240,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   async function signOut() {
-    const { error } = await supabase.auth.signOut()
-    if (error) throw error
+    try {
+      const { error } = await supabase.auth.signOut()
+      if (error) throw error
+      
+      // Clear user and profile state
+      setUser(null)
+      setProfile(null)
+    } catch (err) {
+      console.error('Error signing out:', err)
+      throw err
+    }
   }
 
   async function resetPassword(email: string) {

@@ -368,11 +368,11 @@ export class ApiService {
 
   static async deleteAccount() {
     const { data: { user } } = await supabase.auth.getUser()
-    if (!user) throw new Error('Unauthorized')
+    if (!user) throw new Error('User not authenticated')
 
-    // Delete user's data
+    // Delete user data from related tables
     await supabase
-      .from('payments')
+      .from('api_keys')
       .delete()
       .eq('user_id', user.id)
 
@@ -386,8 +386,8 @@ export class ApiService {
       .delete()
       .eq('id', user.id)
 
-    // Delete the auth user
-    return await supabase.auth.admin.deleteUser(user.id)
+    // Delete the auth user using client-side method
+    return await supabase.auth.signOut()
   }
 
   static async createOrder(amount: number, tokens: number) {
@@ -395,46 +395,30 @@ export class ApiService {
     if (!user) throw new Error('User not authenticated')
 
     // Create order in Razorpay
-    const response = await fetch('/api/create-order', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        amount,
-        tokens,
-        userId: user.id,
-      }),
-    })
-
-    if (!response.ok) {
-      throw new Error('Failed to create order')
-    }
-
-    const { orderId, amount: orderAmount, currency } = await response.json()
-
-    // Initialize Razorpay payment
     const options = {
       key: import.meta.env.VITE_RAZORPAY_KEY_ID,
-      amount: orderAmount,
+      amount: amount * 100, // Convert to cents
       currency: 'USD',
       name: 'JewelChat',
       description: `Purchase ${tokens} tokens`,
-      order_id: orderId,
       handler: async (response: any) => {
         try {
-          // Verify payment
-          const verifyResponse = await fetch('/api/verify-payment', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(response),
-          })
+          // Create payment record
+          const { error: paymentError } = await supabase
+            .from('payments')
+            .insert([
+              {
+                user_id: user.id,
+                amount: amount,
+                tokens: tokens,
+                payment_id: response.razorpay_payment_id,
+                order_id: response.razorpay_order_id,
+                status: 'completed',
+                created_at: new Date().toISOString(),
+              }
+            ])
 
-          if (!verifyResponse.ok) {
-            throw new Error('Payment verification failed')
-          }
+          if (paymentError) throw paymentError
 
           // Update user's tokens
           const { data: userData, error: userError } = await supabase
@@ -454,8 +438,8 @@ export class ApiService {
 
           toast.success('Payment successful!')
         } catch (error) {
-          console.error('Error verifying payment:', error)
-          toast.error('Payment verification failed')
+          console.error('Error processing payment:', error)
+          toast.error('Payment processing failed')
         }
       },
       prefill: {

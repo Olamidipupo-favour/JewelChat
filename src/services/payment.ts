@@ -38,8 +38,8 @@ export class PaymentService {
     // Initialize Razorpay
     const options = {
       key: import.meta.env.VITE_RAZORPAY_KEY_ID,
-      amount: amount * 100, // Razorpay expects amount in paise
-      currency: 'INR',
+      amount: amount * 100, // Razorpay expects amount in cents
+      currency: 'USD',
       name: 'JewelChat',
       description: `Purchase ${tokens} tokens`,
       order_id: order.id,

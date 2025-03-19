@@ -437,7 +437,7 @@ function App() {
     <AuthProvider>
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
         <Toaster position="top-right" />
-        <div className={`h-screen w-screen overflow-hidden ${themeClasses.background} ${themeClasses.text}`}>
+    <div className={`h-screen w-screen overflow-hidden ${themeClasses.background} ${themeClasses.text}`}>
           {/* ... rest of your existing JSX ... */}
         </div>
       </div>
