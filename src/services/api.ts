@@ -287,12 +287,67 @@ export class ApiService {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) throw new Error('Unauthorized')
 
-    return await supabase
+    // Get payment details
+    const { data: payment, error: paymentError } = await supabase
       .from('payments')
-      .select('invoice_url')
+      .select('*')
       .eq('id', paymentId)
       .eq('user_id', user.id)
       .single()
+
+    if (paymentError) throw paymentError
+    if (!payment) throw new Error('Payment not found')
+
+    // Get user details
+    const { data: userData, error: userError } = await supabase
+      .from('users')
+      .select('email')
+      .eq('id', user.id)
+      .single()
+
+    if (userError) throw userError
+    if (!userData) throw new Error('User not found')
+
+    // Create invoice PDF
+    const { jsPDF } = await import('jspdf')
+    const pdf = new jsPDF()
+
+    // Add company header
+    pdf.setFontSize(20)
+    pdf.text('JewelChat', 20, 20)
+    pdf.setFontSize(12)
+    pdf.text('123 Jewel Street', 20, 30)
+    pdf.text('Gem City, GC 12345', 20, 37)
+
+    // Add invoice details
+    pdf.setFontSize(16)
+    pdf.text('INVOICE', 20, 50)
+    pdf.setFontSize(12)
+    pdf.text(`Invoice #: ${payment.id}`, 20, 60)
+    pdf.text(`Date: ${new Date(payment.created_at).toLocaleDateString()}`, 20, 67)
+
+    // Add customer details
+    pdf.setFontSize(14)
+    pdf.text('Bill To:', 20, 80)
+    pdf.setFontSize(12)
+    pdf.text(userData.email, 20, 87)
+
+    // Add payment details
+    pdf.setFontSize(14)
+    pdf.text('Payment Details:', 20, 100)
+    pdf.setFontSize(12)
+    pdf.text(`Amount: $${payment.amount.toFixed(2)}`, 20, 107)
+    pdf.text(`Tokens: ${payment.tokens}`, 20, 114)
+    pdf.text(`Status: ${payment.status.toUpperCase()}`, 20, 121)
+
+    // Add footer
+    pdf.setFontSize(10)
+    pdf.text('Thank you for your business!', 20, 140)
+    pdf.text('For support, contact support@jewelchat.com', 20, 147)
+
+    // Convert to blob
+    const pdfBlob = pdf.output('blob')
+    return pdfBlob
   }
 
   static async updatePassword(currentPassword: string, newPassword: string) {

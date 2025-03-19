@@ -12,93 +12,102 @@ interface Payment {
 }
 
 interface Stats {
+  totalIncome: number
   totalTokens: number
-  totalPayments: number
   lastPayment: Payment | null
 }
 
 export default function Overview() {
   const { profile } = useAuth()
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-  const [stats, setStats] = useState<Stats>({
+  const [stats, setStats] = useState({
+    totalIncome: 0,
     totalTokens: 0,
-    totalPayments: 0,
-    lastPayment: null,
+    lastPayment: null as Payment | null,
   })
 
   useEffect(() => {
-    fetchData()
+    fetchStats()
   }, [])
 
-  async function fetchData() {
+  async function fetchStats() {
     try {
-      setLoading(true)
-      const data = await ApiService.getUserStats()
-      setStats(data)
-    } catch (err) {
-      console.error('Error fetching stats:', err)
-      setError(err instanceof Error ? err.message : 'Failed to fetch stats')
-    } finally {
-      setLoading(false)
+      const { data: payments, error } = await ApiService.getPayments()
+      if (error) throw error
+
+      // Calculate total income excluding pending payments
+      const totalIncome = payments
+        .filter(payment => payment.status === 'completed')
+        .reduce((sum, payment) => sum + payment.amount, 0)
+
+      // Calculate total tokens
+      const totalTokens = payments
+        .filter(payment => payment.status === 'completed')
+        .reduce((sum, payment) => sum + payment.tokens, 0)
+
+      // Get the most recent completed payment
+      const lastPayment = payments
+        .filter(payment => payment.status === 'completed')
+        .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())[0] || null
+
+      setStats({
+        totalIncome,
+        totalTokens,
+        lastPayment,
+      })
+    } catch (error) {
+      console.error('Error fetching stats:', error)
     }
   }
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600"></div>
-      </div>
-    )
-  }
-
-  if (error) {
-    return (
-      <div className="text-red-500 text-center p-4">
-        {error}
-      </div>
-    )
-  }
-
   return (
-    <div className="space-y-6">
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <Card className="p-6">
-          <div className="flex items-center">
-            <div className="p-3 bg-purple-100 rounded-full">
-              <Activity className="w-6 h-6 text-purple-600" />
-            </div>
-            <div className="ml-4">
-              <h3 className="text-sm font-medium text-gray-500">Available Tokens</h3>
-              <p className="text-2xl font-semibold text-gray-900">{profile?.tokens || 0}</p>
-            </div>
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <Card className="p-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-sm font-medium text-gray-500">Total Income</p>
+            <p className="text-2xl font-semibold text-gray-900">${stats.totalIncome.toFixed(2)}</p>
           </div>
-        </Card>
+          <div className="p-3 bg-green-100 rounded-full">
+            <CreditCard className="w-6 h-6 text-green-600" />
+          </div>
+        </div>
+      </Card>
 
-        <Card className="p-6">
-          <div className="flex items-center">
-            <div className="p-3 bg-green-100 rounded-full">
-              <CreditCard className="w-6 h-6 text-green-600" />
-            </div>
-            <div className="ml-4">
-              <h3 className="text-sm font-medium text-gray-500">Total Payments</h3>
-              <p className="text-2xl font-semibold text-gray-900">₹{stats.totalPayments}</p>
-            </div>
+      <Card className="p-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-sm font-medium text-gray-500">Total Tokens</p>
+            <p className="text-2xl font-semibold text-gray-900">{stats.totalTokens.toLocaleString()}</p>
           </div>
-        </Card>
+          <div className="p-3 bg-blue-100 rounded-full">
+            <Activity className="w-6 h-6 text-blue-600" />
+          </div>
+        </div>
+      </Card>
 
-        <Card className="p-6">
-          <div className="flex items-center">
-            <div className="p-3 bg-blue-100 rounded-full">
-              <User className="w-6 h-6 text-blue-600" />
-            </div>
-            <div className="ml-4">
-              <h3 className="text-sm font-medium text-gray-500">Account Type</h3>
-              <p className="text-2xl font-semibold text-gray-900 capitalize">{profile?.role || 'user'}</p>
-            </div>
+      <Card className="p-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-sm font-medium text-gray-500">API Usage</p>
+            <p className="text-2xl font-semibold text-gray-900">0</p>
           </div>
-        </Card>
-      </div>
+          <div className="p-3 bg-purple-100 rounded-full">
+            <Settings className="w-6 h-6 text-purple-600" />
+          </div>
+        </div>
+      </Card>
+
+      <Card className="p-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-sm font-medium text-gray-500">Account Status</p>
+            <p className="text-2xl font-semibold text-gray-900">Active</p>
+          </div>
+          <div className="p-3 bg-yellow-100 rounded-full">
+            <User className="w-6 h-6 text-yellow-600" />
+          </div>
+        </div>
+      </Card>
 
       <Card className="p-6">
         <h2 className="text-lg font-semibold text-gray-900 mb-4">Recent Activity</h2>
@@ -112,7 +121,7 @@ export default function Overview() {
                 </p>
               </div>
               <p className="text-sm font-medium text-green-600">
-                ₹{stats.lastPayment.amount}
+                ${stats.lastPayment.amount.toFixed(2)}
               </p>
             </div>
           </div>
