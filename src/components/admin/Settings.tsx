@@ -1,232 +1,222 @@
-import { useEffect, useState } from 'react'
+import { useState, useEffect } from 'react'
 import { ApiService } from '../../services/api'
-import { Database } from '../../types/database'
-import { supabase } from '../../lib/supabase'
+import { Card } from '../../components/ui/card'
+import { Save, Bell, Shield, CreditCard } from 'lucide-react'
 
-type ApiPricing = Database['public']['Tables']['api_pricing']['Row']
+interface SystemSettings {
+  maintenance_mode: boolean
+  email_notifications: boolean
+  payment_gateway: {
+    enabled: boolean
+    test_mode: boolean
+  }
+  security: {
+    require_2fa: boolean
+    max_login_attempts: number
+  }
+}
 
-const API_TYPES = [
-  { id: 'stable_diffusion', name: 'Stable Diffusion' },
-  { id: 'perplexity', name: 'Perplexity AI' },
-  { id: 'gpt4', name: 'GPT-4' },
-  { id: 'chat', name: 'Chat' },
-]
-
-export default function Settings() {
-  const [pricing, setPricing] = useState<ApiPricing[]>([])
+export default function AdminSettings() {
   const [loading, setLoading] = useState(true)
-  const [editingId, setEditingId] = useState<string | null>(null)
-  const [formData, setFormData] = useState({
-    tokens_per_request: 0,
-    cost_per_token: 0,
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [success, setSuccess] = useState<string | null>(null)
+  const [settings, setSettings] = useState<SystemSettings>({
+    maintenance_mode: false,
+    email_notifications: true,
+    payment_gateway: {
+      enabled: true,
+      test_mode: true,
+    },
+    security: {
+      require_2fa: false,
+      max_login_attempts: 5,
+    },
   })
 
   useEffect(() => {
-    fetchPricing()
+    fetchSettings()
   }, [])
 
-  async function fetchPricing() {
+  async function fetchSettings() {
     try {
-      const { data, error } = await supabase
-        .from('api_pricing')
-        .select('*')
-        .order('api_type', { ascending: true })
-
+      setLoading(true)
+      const { data, error } = await ApiService.getSystemSettings()
       if (error) throw error
-      setPricing(data || [])
-    } catch (error) {
-      console.error('Error fetching pricing:', error)
+      setSettings(data)
+    } catch (err) {
+      console.error('Error fetching system settings:', err)
+      setError(err instanceof Error ? err.message : 'Failed to fetch system settings')
     } finally {
       setLoading(false)
     }
   }
 
-  async function handleUpdatePricing(apiType: string) {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault()
+    setSaving(true)
+    setError(null)
+    setSuccess(null)
+
     try {
-      await ApiService.updateApiPricing(
-        apiType as 'stable_diffusion' | 'perplexity' | 'gpt4' | 'chat',
-        formData.tokens_per_request,
-        formData.cost_per_token
-      )
-      await fetchPricing()
-      setEditingId(null)
-    } catch (error) {
-      console.error('Error updating pricing:', error)
+      const { error } = await ApiService.updateSystemSettings(settings)
+      if (error) throw error
+
+      setSuccess('Settings updated successfully')
+    } catch (err) {
+      console.error('Error updating system settings:', err)
+      setError(err instanceof Error ? err.message : 'Failed to update system settings')
+    } finally {
+      setSaving(false)
     }
   }
 
   if (loading) {
-    return <div>Loading...</div>
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600"></div>
+      </div>
+    )
   }
 
   return (
-    <div>
-      <div className="sm:flex sm:items-center">
-        <div className="sm:flex-auto">
-          <h1 className="text-2xl font-semibold text-gray-900">Settings</h1>
-          <p className="mt-2 text-sm text-gray-700">
-            Manage your application settings and API pricing.
-          </p>
-        </div>
-      </div>
-
-      <div className="mt-8">
-        <div className="overflow-hidden shadow ring-1 ring-black ring-opacity-5 sm:rounded-lg">
-          <table className="min-w-full divide-y divide-gray-300">
-            <thead className="bg-gray-50">
-              <tr>
-                <th
-                  scope="col"
-                  className="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900 sm:pl-6"
-                >
-                  API Type
-                </th>
-                <th
-                  scope="col"
-                  className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900"
-                >
-                  Tokens per Request
-                </th>
-                <th
-                  scope="col"
-                  className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900"
-                >
-                  Cost per Token
-                </th>
-                <th scope="col" className="relative py-3.5 pl-3 pr-4 sm:pr-6">
-                  <span className="sr-only">Actions</span>
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-200 bg-white">
-              {API_TYPES.map((type) => {
-                const currentPricing = pricing.find((p) => p.api_type === type.id)
-                const isEditing = editingId === type.id
-
-                return (
-                  <tr key={type.id}>
-                    <td className="whitespace-nowrap py-4 pl-4 pr-3 text-sm font-medium text-gray-900 sm:pl-6">
-                      {type.name}
-                    </td>
-                    <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
-                      {isEditing ? (
-                        <input
-                          type="number"
-                          value={formData.tokens_per_request}
-                          onChange={(e) =>
-                            setFormData({ ...formData, tokens_per_request: Number(e.target.value) })
-                          }
-                          className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
-                        />
-                      ) : (
-                        currentPricing?.tokens_per_request
-                      )}
-                    </td>
-                    <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
-                      {isEditing ? (
-                        <input
-                          type="number"
-                          step="0.0001"
-                          value={formData.cost_per_token}
-                          onChange={(e) =>
-                            setFormData({ ...formData, cost_per_token: Number(e.target.value) })
-                          }
-                          className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
-                        />
-                      ) : (
-                        `$${currentPricing?.cost_per_token.toFixed(4)}`
-                      )}
-                    </td>
-                    <td className="relative whitespace-nowrap py-4 pl-3 pr-4 text-right text-sm font-medium sm:pr-6">
-                      {isEditing ? (
-                        <>
-                          <button
-                            onClick={() => handleUpdatePricing(type.id)}
-                            className="text-indigo-600 hover:text-indigo-900 mr-4"
-                          >
-                            Save
-                          </button>
-                          <button
-                            onClick={() => setEditingId(null)}
-                            className="text-gray-600 hover:text-gray-900"
-                          >
-                            Cancel
-                          </button>
-                        </>
-                      ) : (
-                        <button
-                          onClick={() => {
-                            setEditingId(type.id)
-                            setFormData({
-                              tokens_per_request: currentPricing?.tokens_per_request || 0,
-                              cost_per_token: currentPricing?.cost_per_token || 0,
-                            })
-                          }}
-                          className="text-indigo-600 hover:text-indigo-900"
-                        >
-                          Edit
-                        </button>
-                      )}
-                    </td>
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      <div className="mt-8">
-        <h2 className="text-lg font-medium text-gray-900">Environment Variables</h2>
-        <div className="mt-4">
-          <div className="overflow-hidden shadow ring-1 ring-black ring-opacity-5 sm:rounded-lg">
-            <table className="min-w-full divide-y divide-gray-300">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th
-                    scope="col"
-                    className="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900 sm:pl-6"
-                  >
-                    Variable
-                  </th>
-                  <th
-                    scope="col"
-                    className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900"
-                  >
-                    Value
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-200 bg-white">
-                <tr>
-                  <td className="whitespace-nowrap py-4 pl-4 pr-3 text-sm font-medium text-gray-900 sm:pl-6">
-                    Token Price
-                  </td>
-                  <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
-                    ${import.meta.env.VITE_TOKEN_PRICE}
-                  </td>
-                </tr>
-                <tr>
-                  <td className="whitespace-nowrap py-4 pl-4 pr-3 text-sm font-medium text-gray-900 sm:pl-6">
-                    Min Token Purchase
-                  </td>
-                  <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
-                    {import.meta.env.VITE_MIN_TOKEN_PURCHASE}
-                  </td>
-                </tr>
-                <tr>
-                  <td className="whitespace-nowrap py-4 pl-4 pr-3 text-sm font-medium text-gray-900 sm:pl-6">
-                    Max Token Purchase
-                  </td>
-                  <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
-                    {import.meta.env.VITE_MAX_TOKEN_PURCHASE}
-                  </td>
-                </tr>
-              </tbody>
-            </table>
+    <div className="space-y-6">
+      <form onSubmit={handleSubmit} className="space-y-6">
+        <Card className="p-6">
+          <h2 className="text-lg font-semibold text-gray-900 mb-4">System Settings</h2>
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center">
+                <Bell className="w-5 h-5 text-gray-400 mr-2" />
+                <span className="text-sm font-medium text-gray-700">Email Notifications</span>
+              </div>
+              <label className="relative inline-flex items-center cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={settings.email_notifications}
+                  onChange={(e) => setSettings({ ...settings, email_notifications: e.target.checked })}
+                  className="sr-only peer"
+                />
+                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
+              </label>
+            </div>
           </div>
+        </Card>
+
+        <Card className="p-6">
+          <h2 className="text-lg font-semibold text-gray-900 mb-4">Payment Gateway</h2>
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center">
+                <CreditCard className="w-5 h-5 text-gray-400 mr-2" />
+                <span className="text-sm font-medium text-gray-700">Enable Payments</span>
+              </div>
+              <label className="relative inline-flex items-center cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={settings.payment_gateway.enabled}
+                  onChange={(e) => setSettings({
+                    ...settings,
+                    payment_gateway: {
+                      ...settings.payment_gateway,
+                      enabled: e.target.checked,
+                    },
+                  })}
+                  className="sr-only peer"
+                />
+                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
+              </label>
+            </div>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center">
+                <CreditCard className="w-5 h-5 text-gray-400 mr-2" />
+                <span className="text-sm font-medium text-gray-700">Test Mode</span>
+              </div>
+              <label className="relative inline-flex items-center cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={settings.payment_gateway.test_mode}
+                  onChange={(e) => setSettings({
+                    ...settings,
+                    payment_gateway: {
+                      ...settings.payment_gateway,
+                      test_mode: e.target.checked,
+                    },
+                  })}
+                  className="sr-only peer"
+                />
+                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
+              </label>
+            </div>
+          </div>
+        </Card>
+
+        <Card className="p-6">
+          <h2 className="text-lg font-semibold text-gray-900 mb-4">Security Settings</h2>
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center">
+                <Shield className="w-5 h-5 text-gray-400 mr-2" />
+                <span className="text-sm font-medium text-gray-700">Require 2FA</span>
+              </div>
+              <label className="relative inline-flex items-center cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={settings.security.require_2fa}
+                  onChange={(e) => setSettings({
+                    ...settings,
+                    security: {
+                      ...settings.security,
+                      require_2fa: e.target.checked,
+                    },
+                  })}
+                  className="sr-only peer"
+                />
+                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
+              </label>
+            </div>
+            <div>
+              <label htmlFor="maxLoginAttempts" className="block text-sm font-medium text-gray-700">
+                Max Login Attempts
+              </label>
+              <input
+                type="number"
+                id="maxLoginAttempts"
+                value={settings.security.max_login_attempts}
+                onChange={(e) => setSettings({
+                  ...settings,
+                  security: {
+                    ...settings.security,
+                    max_login_attempts: Number(e.target.value),
+                  },
+                })}
+                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-purple-500 focus:ring-purple-500 sm:text-sm"
+                min="1"
+                max="10"
+              />
+            </div>
+          </div>
+        </Card>
+
+        {error && (
+          <div className="text-red-500 text-sm">{error}</div>
+        )}
+
+        {success && (
+          <div className="text-green-500 text-sm">{success}</div>
+        )}
+
+        <div className="flex justify-end">
+          <button
+            type="submit"
+            disabled={saving}
+            className="inline-flex justify-center rounded-md border border-transparent bg-purple-600 py-2 px-4 text-sm font-medium text-white shadow-sm hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 disabled:opacity-50"
+          >
+            <Save className="w-4 h-4 mr-2" />
+            {saving ? 'Saving...' : 'Save Changes'}
+          </button>
         </div>
-      </div>
+      </form>
     </div>
   )
 } 

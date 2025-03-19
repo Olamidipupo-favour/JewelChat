@@ -9,11 +9,11 @@ interface AuthContextType {
   user: User | null
   profile: UserProfile | null
   loading: boolean
-  signUp: (email: string, password: string) => Promise<void>
   signIn: (email: string, password: string) => Promise<void>
+  signUp: (email: string, password: string) => Promise<void>
   signOut: () => Promise<void>
-  resetPassword: (email: string) => Promise<void>
-  updateProfile: (data: Partial<UserProfile>) => Promise<void>
+  fetchProfile: (userId: string) => Promise<void>
+  updateProfile: (updates: { email?: string }) => Promise<UserProfile>
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
@@ -234,17 +234,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (error) throw error
   }
 
-  async function updateProfile(data: Partial<UserProfile>) {
-    if (!user) throw new Error('No user logged in')
+  const updateProfile = async (updates: { email?: string }) => {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) throw new Error('Unauthorized')
 
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from('users')
-      .update(data)
+      .update(updates)
       .eq('id', user.id)
+      .select()
+      .single()
 
     if (error) throw error
 
-    await fetchProfile(user.id)
+    setProfile(data)
+    return data
   }
 
   const value = {
@@ -256,6 +260,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     signOut,
     resetPassword,
     updateProfile,
+    fetchProfile,
   }
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

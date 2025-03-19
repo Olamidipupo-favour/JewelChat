@@ -148,9 +148,9 @@ export class ApiService {
   }
 
   static async updateApiPricing(
-    apiType: 'stable_diffusion' | 'perplexity' | 'gpt4' | 'chat',
-    tokensPerRequest: number,
-    costPerToken: number
+    apiTypeOrUpdates: 'stable_diffusion' | 'perplexity' | 'gpt4' | 'chat' | Array<{ id: string; tokens_per_request: number; cost_per_token: number }>,
+    tokensPerRequest?: number,
+    costPerToken?: number
   ) {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) throw new Error('User not authenticated')
@@ -166,6 +166,15 @@ export class ApiService {
       throw new Error('Unauthorized')
     }
 
+    if (Array.isArray(apiTypeOrUpdates)) {
+      const { error } = await supabase
+        .from('api_pricing')
+        .upsert(apiTypeOrUpdates)
+
+      if (error) throw error
+      return { error: null }
+    }
+
     const { error } = await supabase
       .from('api_pricing')
       .update({
@@ -173,8 +182,153 @@ export class ApiService {
         cost_per_token: costPerToken,
         updated_at: new Date().toISOString(),
       })
-      .eq('api_type', apiType)
+      .eq('api_type', apiTypeOrUpdates)
 
     if (error) throw error
+    return { error: null }
+  }
+
+  static async getUserStats() {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) throw new Error('Unauthorized')
+
+    const { data: payments, error: paymentsError } = await supabase
+      .from('payments')
+      .select('*')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false })
+
+    if (paymentsError) throw paymentsError
+
+    const totalPayments = payments.reduce((sum, payment) => sum + payment.amount, 0)
+    const lastPayment = payments[0] || null
+
+    return {
+      totalTokens: user.user_metadata.tokens || 0,
+      totalPayments,
+      lastPayment,
+    }
+  }
+
+  static async getPayments() {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) throw new Error('Unauthorized')
+
+    return await supabase
+      .from('payments')
+      .select('*')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false })
+  }
+
+  static async downloadInvoice(paymentId: string) {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) throw new Error('Unauthorized')
+
+    return await supabase
+      .from('payments')
+      .select('invoice_url')
+      .eq('id', paymentId)
+      .eq('user_id', user.id)
+      .single()
+  }
+
+  static async updatePassword(currentPassword: string, newPassword: string) {
+    return await supabase.auth.updateUser({
+      password: newPassword
+    })
+  }
+
+  static async deleteAccount() {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) throw new Error('Unauthorized')
+
+    // Delete user's data
+    await supabase
+      .from('payments')
+      .delete()
+      .eq('user_id', user.id)
+
+    await supabase
+      .from('api_usage')
+      .delete()
+      .eq('user_id', user.id)
+
+    await supabase
+      .from('users')
+      .delete()
+      .eq('id', user.id)
+
+    // Delete the auth user
+    return await supabase.auth.admin.deleteUser(user.id)
+  }
+
+  static async getApiUsageStats() {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) throw new Error('Unauthorized')
+
+    const { data, error } = await supabase
+      .from('api_usage')
+      .select('*')
+      .order('created_at', { ascending: false })
+
+    if (error) throw error
+
+    const stats = {
+      total_requests: data.length,
+      total_tokens: data.reduce((sum, usage) => sum + usage.tokens_used, 0),
+      total_cost: data.reduce((sum, usage) => sum + usage.cost, 0),
+      average_response_time: 0, // This would need to be calculated from actual response times
+    }
+
+    return { data: stats, error: null }
+  }
+
+  static async getApiPricing() {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) throw new Error('Unauthorized')
+
+    return await supabase
+      .from('api_pricing')
+      .select('*')
+      .order('api_type')
+  }
+
+  static async getSystemSettings() {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) throw new Error('Unauthorized')
+
+    const { data, error } = await supabase
+      .from('system_settings')
+      .select('*')
+      .single()
+
+    if (error) throw error
+    return { data, error: null }
+  }
+
+  static async updateSystemSettings(settings: {
+    maintenance_mode: boolean
+    email_notifications: boolean
+    payment_gateway: {
+      enabled: boolean
+      test_mode: boolean
+    }
+    security: {
+      require_2fa: boolean
+      max_login_attempts: number
+    }
+  }) {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) throw new Error('Unauthorized')
+
+    const { data, error } = await supabase
+      .from('system_settings')
+      .upsert(settings)
+      .select()
+      .single()
+
+    if (error) throw error
+    return { data, error: null }
   }
 } 
