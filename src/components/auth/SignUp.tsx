@@ -13,20 +13,25 @@ export default function SignUp() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    setError(null)
+    setLoading(true)
+    setError('')
 
     if (password !== confirmPassword) {
       setError('Passwords do not match')
       return
     }
 
-    setLoading(true)
-
     try {
+      console.log('Starting signup process...')
       await signUp(email, password)
-      navigate('/admin')
+      console.log('Signup successful, redirecting...')
+      // Add a small delay to ensure state is updated
+      setTimeout(() => {
+        navigate('/admin', { replace: true })
+      }, 100)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to create account')
+      console.error('Signup error:', err)
+      setError(err instanceof Error ? err.message : 'An error occurred during signup')
     } finally {
       setLoading(false)
     }

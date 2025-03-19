@@ -48,19 +48,34 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [])
 
   async function fetchProfile(userId: string) {
-    console.log('Fetching profile for user:', userId)
+    console.log('4. Entering fetchProfile for user:', userId)
+    const startTime = performance.now()
     try {
-      const { data, error } = await supabase
+      console.log('4.1. Starting Supabase query...')
+      const queryStartTime = performance.now()
+      
+      // Add timeout to the query
+      const queryPromise = supabase
         .from('users')
         .select('*')
         .eq('id', userId)
         .single()
+
+      const timeoutPromise = new Promise<{ data: any; error: any }>((_, reject) => {
+        setTimeout(() => reject(new Error('Query timeout after 5 seconds')), 5000)
+      })
+
+      const result = await Promise.race([queryPromise, timeoutPromise])
+      const { data, error } = result
+      const queryEndTime = performance.now()
+      console.log(`4.2. Supabase query completed in ${(queryEndTime - queryStartTime).toFixed(2)}ms`)
 
       if (error) {
         console.error('Error fetching profile:', error)
         // If the profile doesn't exist, create it
         if (error.code === 'PGRST116') {
           console.log('Profile not found, creating new profile...')
+          const insertStartTime = performance.now()
           const { error: insertError } = await supabase
             .from('users')
             .insert([
@@ -73,6 +88,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 updated_at: new Date().toISOString(),
               }
             ])
+          const insertEndTime = performance.now()
+          console.log(`Profile creation completed in ${(insertEndTime - insertStartTime).toFixed(2)}ms`)
 
           if (insertError) {
             console.error('Error creating profile:', insertError)
@@ -80,11 +97,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           }
 
           // Fetch the newly created profile
+          console.log('Fetching newly created profile...')
+          const newQueryStartTime = performance.now()
           const { data: newData, error: newError } = await supabase
             .from('users')
             .select('*')
             .eq('id', userId)
             .single()
+          const newQueryEndTime = performance.now()
+          console.log(`New profile fetch completed in ${(newQueryEndTime - newQueryStartTime).toFixed(2)}ms`)
 
           if (newError) {
             console.error('Error fetching new profile:', newError)
@@ -102,56 +123,104 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setProfile(data)
     } catch (err) {
       console.error('Unexpected error in fetchProfile:', err)
+      // Log the full error details
+      if (err instanceof Error) {
+        console.error('Error details:', {
+          message: err.message,
+          stack: err.stack,
+          name: err.name
+        })
+      }
+      throw err // Re-throw to be caught by signIn
+    } finally {
+      const endTime = performance.now()
+      console.log(`4.3. Total fetchProfile execution time: ${(endTime - startTime).toFixed(2)}ms`)
     }
   }
 
   async function signUp(email: string, password: string) {
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
-    })
-    if (error) throw error
-
-    // Create user profile with 'user' role
-    if (data.user) {
-      const { error: profileError } = await supabase
-        .from('users')
-        .insert([
-          {
-            id: data.user.id,
-            email: data.user.email,
-            role: 'user',
-            tokens: 0,
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
-          }
-        ])
-
-      if (profileError) {
-        console.error('Error creating user profile:', profileError)
-        throw profileError
+    console.log('1. Starting signup process...')
+    const startTime = performance.now()
+    try {
+      console.log('2. Creating auth user...')
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+      })
+      if (error) {
+        console.error('Auth signup error:', error)
+        throw error
       }
+      console.log('3. Auth user created successfully:', data.user?.id)
 
-      // Fetch the profile immediately
-      await fetchProfile(data.user.id)
+      // Create user profile with 'user' role
+      if (data.user) {
+        console.log('4. Creating user profile...')
+        const profileStartTime = performance.now()
+        const { error: profileError } = await supabase
+          .from('users')
+          .insert([
+            {
+              id: data.user.id,
+              email: data.user.email,
+              role: 'user',
+              tokens: 0,
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString(),
+            }
+          ])
+
+        if (profileError) {
+          console.error('Profile creation error:', profileError)
+          throw profileError
+        }
+        console.log(`5. Profile created in ${(performance.now() - profileStartTime).toFixed(2)}ms`)
+
+        // Fetch the profile immediately
+        console.log('6. Fetching created profile...')
+        await fetchProfile(data.user.id)
+        console.log('7. Profile fetch completed')
+      }
+    } catch (err) {
+      console.error('Unexpected error in signUp:', err)
+      throw err
+    } finally {
+      const endTime = performance.now()
+      console.log(`Total signup execution time: ${(endTime - startTime).toFixed(2)}ms`)
     }
   }
 
   async function signIn(email: string, password: string) {
-    console.log('Attempting to sign in...')
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    })
-    if (error) {
-      console.error('Sign in error:', error)
-      throw error
-    }
-    console.log('Sign in successful:', data.user)
-    if (data.user) {
-      console.log('Fetching profile...')
-      await fetchProfile(data.user.id)
-      console.log('Profile fetched')
+    console.log('1. Starting sign in process...')
+    const startTime = performance.now()
+    try {
+      console.log('2. Creating auth user...')
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      })
+      if (error) {
+        console.error('Auth sign in error:', error)
+        throw error
+      }
+      console.log('3. Auth user created successfully:', data.user?.id)
+
+      if (data.user) {
+        console.log('4. Starting profile fetch...')
+        try {
+          await fetchProfile(data.user.id)
+          console.log('5. Profile fetch completed in signIn')
+        } catch (err) {
+          console.error('Error in signIn profile fetch:', err)
+          // Don't throw here, just log the error
+        }
+      }
+    } catch (err) {
+      console.error('Unexpected error in signIn:', err)
+      throw err
+    } finally {
+      const endTime = performance.now()
+      console.log(`Total signIn execution time: ${(endTime - startTime).toFixed(2)}ms`)
     }
   }
 

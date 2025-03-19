@@ -27,26 +27,44 @@ import './index.css';
 const router = createBrowserRouter([
   {
     path: "/",
-    element: <App />,
+    element: (
+      <AuthProvider>
+        <App />
+      </AuthProvider>
+    ),
   },
   {
     path: "/login",
-    element: <Login />,
+    element: (
+      <AuthProvider>
+        <Login />
+      </AuthProvider>
+    ),
   },
   {
     path: "/signup",
-    element: <SignUp />,
+    element: (
+      <AuthProvider>
+        <SignUp />
+      </AuthProvider>
+    ),
   },
   {
     path: "/forgot-password",
-    element: <ForgotPassword />,
+    element: (
+      <AuthProvider>
+        <ForgotPassword />
+      </AuthProvider>
+    ),
   },
   {
     path: "/admin",
     element: (
-      <AdminRoute>
-        <DashboardLayout />
-      </AdminRoute>
+      <AuthProvider>
+        <AdminRoute>
+          <DashboardLayout />
+        </AdminRoute>
+      </AuthProvider>
     ),
     children: [
       {
@@ -115,8 +133,6 @@ const router = createBrowserRouter([
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <AuthProvider>
-      <RouterProvider router={router} />
-    </AuthProvider>
+    <RouterProvider router={router} />
   </StrictMode>
 );
