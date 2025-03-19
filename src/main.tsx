@@ -1,6 +1,7 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { createBrowserRouter, RouterProvider } from 'react-router-dom';
+import { AuthProvider } from './contexts/AuthContext';
 import App from './App.tsx';
 import BlogPage from './pages/BlogPage.tsx';
 import DeepResearchPage from './pages/DeepResearchPage.tsx';
@@ -12,12 +13,59 @@ import ImageVariations from './pages/ImageVariations.tsx';
 import EasyVariation from './pages/EasyVariation.tsx';
 import AdvancedVariation from './pages/AdvancedVariation.tsx';
 import ImageCollection from './pages/ImageCollection.tsx';
+import Login from './components/auth/Login';
+import SignUp from './components/auth/SignUp';
+import ForgotPassword from './components/auth/ForgotPassword';
+import DashboardLayout from './components/admin/DashboardLayout';
+import Overview from './components/admin/Overview';
+import Users from './components/admin/Users';
+import Payments from './components/admin/Payments';
+import Settings from './components/admin/Settings';
+import { AdminRoute } from './components/auth/AdminRoute';
 import './index.css';
 
 const router = createBrowserRouter([
   {
     path: "/",
     element: <App />,
+  },
+  {
+    path: "/login",
+    element: <Login />,
+  },
+  {
+    path: "/signup",
+    element: <SignUp />,
+  },
+  {
+    path: "/forgot-password",
+    element: <ForgotPassword />,
+  },
+  {
+    path: "/admin",
+    element: (
+      <AdminRoute>
+        <DashboardLayout />
+      </AdminRoute>
+    ),
+    children: [
+      {
+        index: true,
+        element: <Overview />,
+      },
+      {
+        path: "users",
+        element: <Users />,
+      },
+      {
+        path: "payments",
+        element: <Payments />,
+      },
+      {
+        path: "settings",
+        element: <Settings />,
+      },
+    ],
   },
   {
     path: "/blog",
@@ -67,6 +115,8 @@ const router = createBrowserRouter([
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <RouterProvider router={router} />
+    <AuthProvider>
+      <RouterProvider router={router} />
+    </AuthProvider>
   </StrictMode>
 );

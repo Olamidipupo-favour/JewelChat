@@ -48,34 +48,111 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [])
 
   async function fetchProfile(userId: string) {
-    const { data, error } = await supabase
-      .from('users')
-      .select('*')
-      .eq('id', userId)
-      .single()
+    console.log('Fetching profile for user:', userId)
+    try {
+      const { data, error } = await supabase
+        .from('users')
+        .select('*')
+        .eq('id', userId)
+        .single()
 
-    if (error) {
-      console.error('Error fetching profile:', error)
-      return
+      if (error) {
+        console.error('Error fetching profile:', error)
+        // If the profile doesn't exist, create it
+        if (error.code === 'PGRST116') {
+          console.log('Profile not found, creating new profile...')
+          const { error: insertError } = await supabase
+            .from('users')
+            .insert([
+              {
+                id: userId,
+                email: user?.email,
+                role: 'user',
+                tokens: 0,
+                created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString(),
+              }
+            ])
+
+          if (insertError) {
+            console.error('Error creating profile:', insertError)
+            return
+          }
+
+          // Fetch the newly created profile
+          const { data: newData, error: newError } = await supabase
+            .from('users')
+            .select('*')
+            .eq('id', userId)
+            .single()
+
+          if (newError) {
+            console.error('Error fetching new profile:', newError)
+            return
+          }
+
+          console.log('New profile created and fetched:', newData)
+          setProfile(newData)
+          return
+        }
+        return
+      }
+
+      console.log('Profile fetched successfully:', data)
+      setProfile(data)
+    } catch (err) {
+      console.error('Unexpected error in fetchProfile:', err)
     }
-
-    setProfile(data)
   }
 
   async function signUp(email: string, password: string) {
-    const { error } = await supabase.auth.signUp({
+    const { data, error } = await supabase.auth.signUp({
       email,
       password,
     })
     if (error) throw error
+
+    // Create user profile with 'user' role
+    if (data.user) {
+      const { error: profileError } = await supabase
+        .from('users')
+        .insert([
+          {
+            id: data.user.id,
+            email: data.user.email,
+            role: 'user',
+            tokens: 0,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          }
+        ])
+
+      if (profileError) {
+        console.error('Error creating user profile:', profileError)
+        throw profileError
+      }
+
+      // Fetch the profile immediately
+      await fetchProfile(data.user.id)
+    }
   }
 
   async function signIn(email: string, password: string) {
-    const { error } = await supabase.auth.signInWithPassword({
+    console.log('Attempting to sign in...')
+    const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password,
     })
-    if (error) throw error
+    if (error) {
+      console.error('Sign in error:', error)
+      throw error
+    }
+    console.log('Sign in successful:', data.user)
+    if (data.user) {
+      console.log('Fetching profile...')
+      await fetchProfile(data.user.id)
+      console.log('Profile fetched')
+    }
   }
 
   async function signOut() {
@@ -115,10 +192,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }
 
-export function useAuth() {
+const useAuth = () => {
   const context = useContext(AuthContext)
   if (context === undefined) {
     throw new Error('useAuth must be used within an AuthProvider')
   }
   return context
-} 
+}
+
+export { useAuth } 
