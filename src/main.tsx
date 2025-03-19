@@ -5,7 +5,7 @@ import { AuthProvider } from './contexts/AuthContext'
 import { AuthRoute } from './components/auth/AuthRoute'
 import { AdminRoute } from './components/auth/AdminRoute'
 import { DashboardRoute } from './components/auth/DashboardRoute'
-import { AdminDashboardLayout } from './components/admin/AdminDashboardLayout'
+import DashboardLayout from './components/admin/DashboardLayout'
 import { UserDashboardLayout } from './components/user/DashboardLayout'
 import { Login } from './components/auth/Login'
 import { Register } from './components/auth/Register'
@@ -14,6 +14,7 @@ import UserOverview from './components/user/Overview'
 import Profile from './components/user/Profile'
 import Payments from './components/user/Payments'
 import Settings from './components/user/Settings'
+import ApiKeys from './components/user/ApiKeys'
 import Users from './components/admin/Users'
 import ApiUsage from './components/admin/ApiUsage'
 import Pricing from './components/admin/Pricing'
@@ -25,10 +26,12 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
     <Router>
       <AuthProvider>
         <Routes>
-          <Route path="/login" element={<AuthRoute><Login /></AuthRoute>} />
-          <Route path="/register" element={<AuthRoute><Register /></AuthRoute>} />
+          <Route element={<AuthRoute />}>
+            <Route path="/login" element={<Login />} />
+            <Route path="/register" element={<Register />} />
+          </Route>
           
-          <Route path="/admin" element={<AdminRoute><AdminDashboardLayout /></AdminRoute>}>
+          <Route path="/admin" element={<AdminRoute><DashboardLayout /></AdminRoute>}>
             <Route index element={<AdminOverview />} />
             <Route path="users" element={<Users />} />
             <Route path="api-usage" element={<ApiUsage />} />
@@ -38,6 +41,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
 
           <Route path="/dashboard" element={<DashboardRoute><UserDashboardLayout /></DashboardRoute>}>
             <Route index element={<UserOverview />} />
+            <Route path="api-keys" element={<ApiKeys />} />
             <Route path="profile" element={<Profile />} />
             <Route path="payments" element={<Payments />} />
             <Route path="settings" element={<Settings />} />

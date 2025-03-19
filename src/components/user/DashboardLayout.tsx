@@ -6,7 +6,8 @@ import {
   User, 
   CreditCard, 
   Settings,
-  LogOut
+  LogOut,
+  Key
 } from 'lucide-react'
 
 export function UserDashboardLayout() {
@@ -15,6 +16,7 @@ export function UserDashboardLayout() {
 
   const navigation = [
     { name: 'Overview', href: '/dashboard', icon: LayoutDashboard },
+    { name: 'API Keys', href: '/dashboard/api-keys', icon: Key },
     { name: 'Profile', href: '/dashboard/profile', icon: User },
     { name: 'Payments', href: '/dashboard/payments', icon: CreditCard },
     { name: 'Settings', href: '/dashboard/settings', icon: Settings },
@@ -22,9 +24,9 @@ export function UserDashboardLayout() {
 
   return (
     <div className="min-h-screen bg-gray-100">
-      <div className="flex">
-        {/* Sidebar */}
-        <div className="w-64 bg-white shadow-sm">
+      <div className="flex h-screen overflow-hidden">
+        {/* Fixed Sidebar */}
+        <div className="w-64 bg-white shadow-sm flex flex-col fixed h-full">
           <div className="p-4">
             <div className="flex items-center">
               <div className="p-2 bg-purple-100 rounded-full">
@@ -36,7 +38,7 @@ export function UserDashboardLayout() {
               </div>
             </div>
           </div>
-          <nav className="mt-4">
+          <nav className="flex-1 mt-4 overflow-y-auto">
             {navigation.map((item) => {
               const isActive = location.pathname === item.href
               return (
@@ -55,10 +57,11 @@ export function UserDashboardLayout() {
               )
             })}
           </nav>
-          <div className="absolute bottom-0 w-64 p-4">
+          {/* Fixed Sign Out Button */}
+          <div className="p-4 border-t border-gray-200 bg-white">
             <button
               onClick={() => signOut()}
-              className="flex items-center w-full px-4 py-3 text-sm font-medium text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+              className="flex items-center w-full px-4 py-3 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-md"
             >
               <LogOut className="w-5 h-5 mr-3" />
               Sign out
@@ -66,9 +69,11 @@ export function UserDashboardLayout() {
           </div>
         </div>
 
-        {/* Main content */}
-        <div className="flex-1 p-8">
-          <Outlet />
+        {/* Scrollable Main content */}
+        <div className="flex-1 overflow-y-auto bg-gray-50 ml-64">
+          <div className="p-8">
+            <Outlet />
+          </div>
         </div>
       </div>
     </div>

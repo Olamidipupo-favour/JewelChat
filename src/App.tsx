@@ -39,6 +39,7 @@ import Settings from './components/admin/Settings'
 import Login from './components/auth/Login'
 import SignUp from './components/auth/SignUp'
 import ForgotPassword from './components/auth/ForgotPassword'
+import { Toaster } from 'react-hot-toast';
 
 interface Message {
   content: string;
@@ -433,9 +434,14 @@ function App() {
   }
 
   return (
-    <div className={`h-screen w-screen overflow-hidden ${themeClasses.background} ${themeClasses.text}`}>
-      {/* ... rest of your existing JSX ... */}
-    </div>
+    <AuthProvider>
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+        <Toaster position="top-right" />
+        <div className={`h-screen w-screen overflow-hidden ${themeClasses.background} ${themeClasses.text}`}>
+          {/* ... rest of your existing JSX ... */}
+        </div>
+      </div>
+    </AuthProvider>
   );
 }
 

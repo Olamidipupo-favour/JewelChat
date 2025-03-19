@@ -9,13 +9,15 @@ declare global {
   }
 }
 
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001'
+
 export class PaymentService {
   static async createOrder(amount: number, tokens: number) {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) throw new Error('User not authenticated')
 
     // Create order in your backend
-    const response = await fetch('/api/create-order', {
+    const response = await fetch(`${API_URL}/api/create-order`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -26,6 +28,10 @@ export class PaymentService {
         userId: user.id,
       }),
     })
+
+    if (!response.ok) {
+      throw new Error('Failed to create order')
+    }
 
     const order = await response.json()
 
@@ -61,7 +67,7 @@ export class PaymentService {
     if (!user) throw new Error('User not authenticated')
 
     // Verify payment on your backend
-    const verifyResponse = await fetch('/api/verify-payment', {
+    const verifyResponse = await fetch(`${API_URL}/api/verify-payment`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -72,6 +78,10 @@ export class PaymentService {
         razorpay_signature: response.razorpay_signature,
       }),
     })
+
+    if (!verifyResponse.ok) {
+      throw new Error('Failed to verify payment')
+    }
 
     const verification = await verifyResponse.json()
 
@@ -141,7 +151,7 @@ export class PaymentService {
     }
 
     // Process refund through your backend
-    const response = await fetch('/api/refund-payment', {
+    const response = await fetch(`${API_URL}/api/refund-payment`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -150,6 +160,10 @@ export class PaymentService {
         paymentId,
       }),
     })
+
+    if (!response.ok) {
+      throw new Error('Failed to process refund')
+    }
 
     const result = await response.json()
 

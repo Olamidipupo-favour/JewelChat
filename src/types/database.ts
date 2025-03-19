@@ -41,6 +41,32 @@ export interface Database {
           stripe_customer_id?: string
         }
       }
+      api_keys: {
+        Row: {
+          id: string
+          user_id: string
+          name: string
+          key: string
+          created_at: string
+          last_used: string | null
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          name: string
+          key: string
+          created_at?: string
+          last_used?: string | null
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          name?: string
+          key?: string
+          created_at?: string
+          last_used?: string | null
+        }
+      }
       api_usage: {
         Row: {
           id: string

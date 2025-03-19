@@ -1,8 +1,49 @@
 import { supabase } from '../lib/supabase'
 import { Database } from '../types/database'
+import { v4 as uuidv4 } from 'uuid'
 
 type ApiUsage = Database['public']['Tables']['api_usage']['Row']
 type ApiPricing = Database['public']['Tables']['api_pricing']['Row']
+type Payment = Database['public']['Tables']['payments']['Row']
+type ApiKey = Database['public']['Tables']['api_keys']['Row']
+
+// Helper function to convert string to Uint8Array
+function stringToUint8Array(str: string): Uint8Array {
+  const arr = new Uint8Array(str.length)
+  for (let i = 0; i < str.length; i++) {
+    arr[i] = str.charCodeAt(i)
+  }
+  return arr
+}
+
+// Helper function to convert Uint8Array to hex string
+async function arrayBufferToHex(buffer: ArrayBuffer): Promise<string> {
+  const hashArray = Array.from(new Uint8Array(buffer))
+  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('')
+}
+
+// Helper function to create HMAC
+
+async function createHmac(message: string, key: string): Promise<string> {
+  const keyData = stringToUint8Array(key)
+  const messageData = stringToUint8Array(message)
+
+  const cryptoKey = await crypto.subtle.importKey(
+    'raw',
+    keyData,
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign']
+  )
+
+  const signature = await crypto.subtle.sign(
+    'HMAC',
+    cryptoKey,
+    messageData
+  )
+
+  return arrayBufferToHex(signature)
+}
 
 export class ApiService {
   static async trackApiUsage(
@@ -43,38 +84,100 @@ export class ApiService {
     if (updateError) throw updateError
   }
 
-  static async getApiUsageStats(startDate: Date, endDate: Date) {
+  static async getApiUsageStats() {
     const { data: { user } } = await supabase.auth.getUser()
-    if (!user) throw new Error('User not authenticated')
+    if (!user) throw new Error('Unauthorized')
+
+    // Verify user is admin
+    const { data: profile } = await supabase
+      .from('users')
+      .select('role')
+      .eq('id', user.id)
+      .single()
+
+    if (profile?.role !== 'admin') {
+      throw new Error('Unauthorized')
+    }
 
     const { data, error } = await supabase
       .from('api_usage')
       .select('*')
-      .eq('user_id', user.id)
-      .gte('created_at', startDate.toISOString())
-      .lte('created_at', endDate.toISOString())
-      .order('created_at', { ascending: true })
+      .order('created_at', { ascending: false })
 
     if (error) throw error
+    return data
+  }
 
-    // Calculate statistics
-    const stats = {
-      totalTokens: 0,
-      totalCost: 0,
-      usageByType: {} as Record<string, { tokens: number; cost: number }>,
+  static async getApiPricing() {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) throw new Error('Unauthorized')
+
+    return await supabase
+      .from('api_pricing')
+      .select('*')
+      .order('api_type')
+  }
+
+  static async getSystemSettings() {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) throw new Error('Unauthorized')
+
+    const { data, error } = await supabase
+      .from('system_settings')
+      .select('*')
+      .single()
+
+    if (error) throw error
+    return { data, error: null }
+  }
+
+  static async updateSystemSettings(settings: {
+    maintenance_mode: boolean
+    email_notifications: boolean
+    payment_gateway: {
+      enabled: boolean
+      test_mode: boolean
+    }
+    security: {
+      require_2fa: boolean
+      max_login_attempts: number
+    }
+  }) {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) throw new Error('Unauthorized')
+
+    const { data, error } = await supabase
+      .from('system_settings')
+      .upsert(settings)
+      .select()
+      .single()
+
+    if (error) throw error
+    return { data, error: null }
+  }
+
+  static async updateApiPricing(updates: Array<{ id: string; tokens_per_request: number; cost_per_token: number }>) {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) throw new Error('Unauthorized')
+
+    // Verify user is admin
+    const { data: profile } = await supabase
+      .from('users')
+      .select('role')
+      .eq('id', user.id)
+      .single()
+
+    if (profile?.role !== 'admin') {
+      throw new Error('Unauthorized')
     }
 
-    data.forEach((usage) => {
-      stats.totalTokens += usage.tokens_used
-      stats.totalCost += usage.cost
-      if (!stats.usageByType[usage.api_type]) {
-        stats.usageByType[usage.api_type] = { tokens: 0, cost: 0 }
-      }
-      stats.usageByType[usage.api_type].tokens += usage.tokens_used
-      stats.usageByType[usage.api_type].cost += usage.cost
-    })
+    const { data, error } = await supabase
+      .from('api_pricing')
+      .upsert(updates)
+      .select()
 
-    return stats
+    if (error) throw error
+    return data
   }
 
   static async getAdminStats(startDate: Date, endDate: Date) {
@@ -145,47 +248,6 @@ export class ApiService {
     })
 
     return stats
-  }
-
-  static async updateApiPricing(
-    apiTypeOrUpdates: 'stable_diffusion' | 'perplexity' | 'gpt4' | 'chat' | Array<{ id: string; tokens_per_request: number; cost_per_token: number }>,
-    tokensPerRequest?: number,
-    costPerToken?: number
-  ) {
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) throw new Error('User not authenticated')
-
-    // Verify user is admin
-    const { data: profile } = await supabase
-      .from('users')
-      .select('role')
-      .eq('id', user.id)
-      .single()
-
-    if (profile?.role !== 'admin') {
-      throw new Error('Unauthorized')
-    }
-
-    if (Array.isArray(apiTypeOrUpdates)) {
-      const { error } = await supabase
-        .from('api_pricing')
-        .upsert(apiTypeOrUpdates)
-
-      if (error) throw error
-      return { error: null }
-    }
-
-    const { error } = await supabase
-      .from('api_pricing')
-      .update({
-        tokens_per_request: tokensPerRequest,
-        cost_per_token: costPerToken,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('api_type', apiTypeOrUpdates)
-
-    if (error) throw error
-    return { error: null }
   }
 
   static async getUserStats() {
@@ -263,70 +325,177 @@ export class ApiService {
     return await supabase.auth.admin.deleteUser(user.id)
   }
 
-  static async getApiUsageStats() {
+  static async createOrder(amount: number, tokens: number) {
     const { data: { user } } = await supabase.auth.getUser()
-    if (!user) throw new Error('Unauthorized')
+    if (!user) throw new Error('User not authenticated')
 
-    const { data, error } = await supabase
-      .from('api_usage')
+    // Create order in Razorpay
+    const response = await fetch('/api/create-order', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        amount,
+        tokens,
+        userId: user.id,
+      }),
+    })
+
+    if (!response.ok) {
+      throw new Error('Failed to create order')
+    }
+
+    const { orderId, amount: orderAmount, currency } = await response.json()
+
+    // Initialize Razorpay payment
+    const options = {
+      key: import.meta.env.VITE_RAZORPAY_KEY_ID,
+      amount: orderAmount,
+      currency: 'USD',
+      name: 'JewelChat',
+      description: `Purchase ${tokens} tokens`,
+      order_id: orderId,
+      handler: async (response: any) => {
+        try {
+          // Verify payment
+          const verifyResponse = await fetch('/api/verify-payment', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(response),
+          })
+
+          if (!verifyResponse.ok) {
+            throw new Error('Payment verification failed')
+          }
+
+          // Update user's tokens
+          const { data: userData, error: userError } = await supabase
+            .from('users')
+            .select('tokens')
+            .eq('id', user.id)
+            .single()
+
+          if (userError) throw userError
+
+          const { error: updateError } = await supabase
+            .from('users')
+            .update({ tokens: (userData?.tokens || 0) + tokens })
+            .eq('id', user.id)
+
+          if (updateError) throw updateError
+
+          toast.success('Payment successful!')
+        } catch (error) {
+          console.error('Error verifying payment:', error)
+          toast.error('Payment verification failed')
+        }
+      },
+      prefill: {
+        name: user.email,
+        email: user.email,
+      },
+      theme: {
+        color: '#4F46E5',
+      },
+    }
+
+    const razorpay = new (window as any).Razorpay(options)
+    razorpay.open()
+  }
+
+  static async getOrders() {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) throw new Error('User not authenticated')
+
+    const { data: payments, error } = await supabase
+      .from('payments')
       .select('*')
+      .eq('user_id', user.id)
       .order('created_at', { ascending: false })
 
     if (error) throw error
 
-    const stats = {
-      total_requests: data.length,
-      total_tokens: data.reduce((sum, usage) => sum + usage.tokens_used, 0),
-      total_cost: data.reduce((sum, usage) => sum + usage.cost, 0),
-      average_response_time: 0, // This would need to be calculated from actual response times
-    }
-
-    return { data: stats, error: null }
+    return payments
   }
 
-  static async getApiPricing() {
+  static async getApiKeys() {
     const { data: { user } } = await supabase.auth.getUser()
-    if (!user) throw new Error('Unauthorized')
-
-    return await supabase
-      .from('api_pricing')
-      .select('*')
-      .order('api_type')
-  }
-
-  static async getSystemSettings() {
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) throw new Error('Unauthorized')
+    if (!user) throw new Error('User not authenticated')
 
     const { data, error } = await supabase
-      .from('system_settings')
+      .from('api_keys')
       .select('*')
-      .single()
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false })
 
     if (error) throw error
     return { data, error: null }
   }
 
-  static async updateSystemSettings(settings: {
-    maintenance_mode: boolean
-    email_notifications: boolean
-    payment_gateway: {
-      enabled: boolean
-      test_mode: boolean
+  static async createApiKey(name: string) {
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) throw new Error('User not authenticated')
+
+      console.log('Generating API key for user:', user.id)
+      
+      // Generate a random API key
+      const key = `jk_${uuidv4().replace(/-/g, '')}`
+      console.log('Generated key (first 8 chars):', key.substring(0, 8))
+
+      const { data, error } = await supabase
+        .from('api_keys')
+        .insert([
+          {
+            user_id: user.id,
+            name,
+            key,
+            created_at: new Date().toISOString(),
+          },
+        ])
+        .select()
+        .single()
+
+      if (error) {
+        console.error('Supabase error:', error)
+        throw error
+      }
+
+      console.log('API key created in database')
+      return { data, error: null }
+    } catch (error) {
+      console.error('Error in createApiKey:', error)
+      throw error
     }
-    security: {
-      require_2fa: boolean
-      max_login_attempts: number
-    }
-  }) {
+  }
+
+  static async deleteApiKey(id: string) {
     const { data: { user } } = await supabase.auth.getUser()
-    if (!user) throw new Error('Unauthorized')
+    if (!user) throw new Error('User not authenticated')
+
+    const { error } = await supabase
+      .from('api_keys')
+      .delete()
+      .eq('id', id)
+      .eq('user_id', user.id)
+
+    if (error) throw error
+    return { error: null }
+  }
+
+  static async getApiUsageLogs() {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) throw new Error('User not authenticated')
 
     const { data, error } = await supabase
-      .from('system_settings')
-      .upsert(settings)
-      .select()
-      .single()
+      .from('api_usage')
+      .select('*')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false })
+      .limit(100)
 
     if (error) throw error
     return { data, error: null }
