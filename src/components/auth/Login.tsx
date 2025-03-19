@@ -43,7 +43,7 @@ export function Login() {
           </h2>
           <p className="mt-2 text-center text-sm text-gray-600">
             Or{' '}
-            <Link to="/register" className="font-medium text-purple-600 hover:text-purple-500">
+            <Link to="/signup" className="font-medium text-purple-600 hover:text-purple-500">
               create a new account
             </Link>
           </p>
