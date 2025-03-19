@@ -2,7 +2,7 @@ import { Navigate } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext'
 
 export function DashboardRoute({ children }: { children: React.ReactNode }) {
-  const { user, loading } = useAuth()
+  const { user, profile, loading } = useAuth()
 
   if (loading) {
     return (
@@ -14,6 +14,10 @@ export function DashboardRoute({ children }: { children: React.ReactNode }) {
 
   if (!user) {
     return <Navigate to="/login" />
+  }
+
+  if (profile?.role === 'admin') {
+    return <Navigate to="/admin" />
   }
 
   return <>{children}</>

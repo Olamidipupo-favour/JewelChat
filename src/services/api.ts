@@ -1,6 +1,7 @@
 import { supabase } from '../lib/supabase'
 import { Database } from '../types/database'
 import { v4 as uuidv4 } from 'uuid'
+import { toast } from 'react-hot-toast'
 
 type ApiUsage = Database['public']['Tables']['api_usage']['Row']
 type ApiPricing = Database['public']['Tables']['api_pricing']['Row']
@@ -105,7 +106,16 @@ export class ApiService {
       .order('created_at', { ascending: false })
 
     if (error) throw error
-    return data
+
+    // Calculate aggregated statistics
+    const stats = {
+      total_requests: data.length,
+      total_tokens: data.reduce((sum, usage) => sum + usage.tokens_used, 0),
+      total_cost: data.reduce((sum, usage) => sum + usage.cost, 0),
+      average_response_time: 0, // This would need to be tracked separately
+    }
+
+    return { data: stats, error: null }
   }
 
   static async getApiPricing() {
@@ -551,6 +561,44 @@ export class ApiService {
       .eq('user_id', user.id)
       .order('created_at', { ascending: false })
       .limit(100)
+
+    if (error) throw error
+    return { data, error: null }
+  }
+
+  static async makeUserAdmin(userId: string) {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) throw new Error('Unauthorized')
+
+    // Check if the current user is an admin
+    const { data: currentUser, error: currentUserError } = await supabase
+      .from('users')
+      .select('role')
+      .eq('id', user.id)
+      .single()
+
+    if (currentUserError) throw currentUserError
+    if (currentUser?.role !== 'admin') {
+      throw new Error('Only admins can make other users admin')
+    }
+
+    // Update the target user's role to admin
+    const { error: updateError } = await supabase
+      .from('users')
+      .update({ role: 'admin' })
+      .eq('id', userId)
+
+    if (updateError) throw updateError
+  }
+
+  static async purchaseTokens(amount: number) {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) throw new Error('Not authenticated')
+
+    const { data, error } = await supabase.rpc('increment_tokens', {
+      user_id: user.id,
+      amount: amount
+    })
 
     if (error) throw error
     return { data, error: null }

@@ -8,7 +8,8 @@ import { DashboardRoute } from './components/auth/DashboardRoute'
 import DashboardLayout from './components/admin/DashboardLayout'
 import { UserDashboardLayout } from './components/user/DashboardLayout'
 import { Login } from './components/auth/Login'
-import { Register } from './components/auth/Register'
+import SignUp from './components/auth/SignUp'
+import App from './App'
 import AdminOverview from './components/admin/Overview'
 import UserOverview from './components/user/Overview'
 import Profile from './components/user/Profile'
@@ -19,6 +20,16 @@ import Users from './components/admin/Users'
 import ApiUsage from './components/admin/ApiUsage'
 import Pricing from './components/admin/Pricing'
 import AdminSettings from './components/admin/Settings'
+import BlogPage from './components/BlogPage'
+import DeepResearchPage from './components/DeepResearchPage'
+import DevelopConceptsPage from './components/DevelopConceptsPage'
+import ConceptGenerator from './components/ConceptGenerator'
+import EditConcept from './components/EditConcept'
+import VariationsLanding from './components/VariationsLanding'
+import ImageVariations from './components/ImageVariations'
+import EasyVariation from './components/EasyVariation'
+import AdvancedVariation from './components/AdvancedVariation'
+import ImageCollection from './components/ImageCollection'
 import './index.css'
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
@@ -26,11 +37,26 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
     <Router>
       <AuthProvider>
         <Routes>
+          {/* Public Routes */}
+          <Route path="/blog" element={<BlogPage />} />
+          <Route path="/blog/:slug" element={<BlogPage />} />
+          <Route path="/deep-research" element={<DeepResearchPage />} />
+          <Route path="/develop-concepts" element={<DevelopConceptsPage />} />
+          <Route path="/concept-generator" element={<ConceptGenerator />} />
+          <Route path="/edit-concept" element={<EditConcept />} />
+          <Route path="/variations" element={<VariationsLanding />} />
+          <Route path="/image-variations" element={<ImageVariations />} />
+          <Route path="/easy-variation" element={<EasyVariation />} />
+          <Route path="/advanced-variation" element={<AdvancedVariation />} />
+          <Route path="/image-collection" element={<ImageCollection />} />
+
+          {/* Auth Routes */}
           <Route element={<AuthRoute />}>
             <Route path="/login" element={<Login />} />
-            <Route path="/register" element={<Register />} />
+            <Route path="/signup" element={<SignUp />} />
           </Route>
-          
+
+          {/* Admin Routes */}
           <Route path="/admin" element={<AdminRoute><DashboardLayout /></AdminRoute>}>
             <Route index element={<AdminOverview />} />
             <Route path="users" element={<Users />} />
@@ -39,6 +65,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
             <Route path="settings" element={<AdminSettings />} />
           </Route>
 
+          {/* User Dashboard Routes */}
           <Route path="/dashboard" element={<DashboardRoute><UserDashboardLayout /></DashboardRoute>}>
             <Route index element={<UserOverview />} />
             <Route path="api-keys" element={<ApiKeys />} />
@@ -46,6 +73,9 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
             <Route path="payments" element={<Payments />} />
             <Route path="settings" element={<Settings />} />
           </Route>
+
+          {/* App Routes */}
+          <Route path="/*" element={<App />} />
         </Routes>
       </AuthProvider>
     </Router>

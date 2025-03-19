@@ -100,7 +100,7 @@ export default function ApiUsage() {
             </div>
             <div className="ml-4">
               <h3 className="text-sm font-medium text-gray-500">Total Cost</h3>
-              <p className="text-2xl font-semibold text-gray-900">₹{stats.total_cost}</p>
+              <p className="text-2xl font-semibold text-gray-900">₹{stats.total_cost.toFixed(2)}</p>
             </div>
           </div>
         </Card>

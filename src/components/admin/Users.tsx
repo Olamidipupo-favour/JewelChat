@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabase'
 import { Database } from '../../types/database'
+import { ApiService } from '../../services/api'
+import { toast } from 'react-hot-toast'
 
 type User = Database['public']['Tables']['users']['Row']
 
@@ -24,6 +26,7 @@ export default function Users() {
       setUsers(data || [])
     } catch (error) {
       console.error('Error fetching users:', error)
+      toast.error('Failed to fetch users')
     } finally {
       setLoading(false)
     }
@@ -38,8 +41,10 @@ export default function Users() {
 
       if (error) throw error
       await fetchUsers()
+      toast.success('User status updated successfully')
     } catch (error) {
       console.error('Error updating user status:', error)
+      toast.error('Failed to update user status')
     }
   }
 
@@ -54,8 +59,23 @@ export default function Users() {
 
       if (error) throw error
       await fetchUsers()
+      toast.success('User deleted successfully')
     } catch (error) {
       console.error('Error deleting user:', error)
+      toast.error('Failed to delete user')
+    }
+  }
+
+  async function makeUserAdmin(userId: string) {
+    if (!window.confirm('Are you sure you want to make this user an admin?')) return
+
+    try {
+      await ApiService.makeUserAdmin(userId)
+      await fetchUsers()
+      toast.success('User role updated to admin')
+    } catch (error) {
+      console.error('Error making user admin:', error)
+      toast.error(error instanceof Error ? error.message : 'Failed to make user admin')
     }
   }
 
@@ -136,7 +156,15 @@ export default function Users() {
                         {user.email}
                       </td>
                       <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
-                        {user.role}
+                        <span
+                          className={`inline-flex rounded-full px-2 text-xs font-semibold leading-5 ${
+                            user.role === 'admin'
+                              ? 'bg-purple-100 text-purple-800'
+                              : 'bg-gray-100 text-gray-800'
+                          }`}
+                        >
+                          {user.role}
+                        </span>
                       </td>
                       <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
                         <span
@@ -156,6 +184,14 @@ export default function Users() {
                         {new Date(user.created_at).toLocaleDateString()}
                       </td>
                       <td className="relative whitespace-nowrap py-4 pl-3 pr-4 text-right text-sm font-medium sm:pr-6">
+                        {user.role !== 'admin' && (
+                          <button
+                            onClick={() => makeUserAdmin(user.id)}
+                            className="text-purple-600 hover:text-purple-900 mr-4"
+                          >
+                            Make Admin
+                          </button>
+                        )}
                         <button
                           onClick={() => toggleUserStatus(user.id, user.is_active)}
                           className="text-indigo-600 hover:text-indigo-900 mr-4"

@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext'
+import { toast } from 'react-hot-toast'
 
 export default function SignUp() {
   const [email, setEmail] = useState('')
@@ -18,6 +19,7 @@ export default function SignUp() {
 
     if (password !== confirmPassword) {
       setError('Passwords do not match')
+      setLoading(false)
       return
     }
 
@@ -25,13 +27,16 @@ export default function SignUp() {
       console.log('Starting signup process...')
       await signUp(email, password)
       console.log('Signup successful, redirecting...')
+      toast.success('Account created successfully! Please check your email to verify your account.')
       // Add a small delay to ensure state is updated
       setTimeout(() => {
-        navigate('/admin', { replace: true })
+        navigate('/signup', { replace: true })
       }, 100)
     } catch (err) {
       console.error('Signup error:', err)
-      setError(err instanceof Error ? err.message : 'An error occurred during signup')
+      const errorMessage = err instanceof Error ? err.message : 'An error occurred during signup'
+      setError(errorMessage)
+      toast.error(errorMessage)
     } finally {
       setLoading(false)
     }

@@ -1,5 +1,8 @@
+import { useState, useEffect } from 'react'
 import { Outlet, Link, useLocation } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext'
+import { ApiService } from '../../services/api'
+import { Loader2 } from 'lucide-react'
 import { Card } from '../ui/card'
 import { 
   LayoutDashboard, 
@@ -10,9 +13,65 @@ import {
   Key
 } from 'lucide-react'
 
+interface SystemSettings {
+  maintenance_mode: boolean
+  email_notifications: boolean
+  payment_gateway: {
+    enabled: boolean
+    test_mode: boolean
+    currency: string
+  }
+  pricing: {
+    tokens_per_dollar: number
+    minimum_purchase: number
+    maximum_purchase: number
+    free_tokens: number
+  }
+}
+
 export function UserDashboardLayout() {
-  const { profile, signOut } = useAuth()
+  const { profile, signOut, loading } = useAuth()
   const location = useLocation()
+  const [settings, setSettings] = useState<SystemSettings | null>(null)
+
+  useEffect(() => {
+    async function fetchSettings() {
+      try {
+        const { data, error } = await ApiService.getSystemSettings()
+        if (error) throw error
+        setSettings(data)
+      } catch (err) {
+        console.error('Error fetching system settings:', err)
+      }
+    }
+    fetchSettings()
+  }, [])
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-gray-50">
+        <div className="text-center">
+          <Loader2 className="w-8 h-8 animate-spin mx-auto text-purple-600" />
+          <p className="mt-2 text-sm text-gray-500">Loading dashboard...</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (settings?.maintenance_mode) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-gray-50">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold text-gray-900">System Maintenance</h1>
+          <p className="mt-2 text-gray-500">We're currently performing maintenance. Please check back later.</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (!profile) {
+    return null
+  }
 
   const navigation = [
     { name: 'Overview', href: '/dashboard', icon: LayoutDashboard },

@@ -88,12 +88,10 @@ export default function Payments() {
 
   const handleDownloadInvoice = async (paymentId: string) => {
     try {
-      const { data, error } = await ApiService.downloadInvoice(paymentId)
-      if (error) throw error
+      const pdfBlob = await ApiService.downloadInvoice(paymentId)
       
       // Create a blob from the PDF data
-      const blob = new Blob([data], { type: 'application/pdf' })
-      const url = window.URL.createObjectURL(blob)
+      const url = window.URL.createObjectURL(pdfBlob)
       const a = document.createElement('a')
       a.href = url
       a.download = `invoice-${paymentId}.pdf`
@@ -103,7 +101,7 @@ export default function Payments() {
       document.body.removeChild(a)
     } catch (err) {
       console.error('Error downloading invoice:', err)
-      setError(err instanceof Error ? err.message : 'Failed to download invoice')
+      toast.error('Failed to download invoice')
     }
   }
 

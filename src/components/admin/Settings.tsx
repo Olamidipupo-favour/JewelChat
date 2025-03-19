@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { ApiService } from '../../services/api'
 import { Card } from '../../components/ui/card'
-import { Save, Bell, Shield, CreditCard } from 'lucide-react'
+import { toast } from 'react-hot-toast'
 
 interface SystemSettings {
   maintenance_mode: boolean
@@ -9,29 +9,33 @@ interface SystemSettings {
   payment_gateway: {
     enabled: boolean
     test_mode: boolean
+    currency: string
   }
-  security: {
-    require_2fa: boolean
-    max_login_attempts: number
+  pricing: {
+    tokens_per_dollar: number
+    minimum_purchase: number
+    maximum_purchase: number
+    free_tokens: number
   }
 }
 
-export default function AdminSettings() {
+export default function Settings() {
   const [loading, setLoading] = useState(true)
-  const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [success, setSuccess] = useState<string | null>(null)
   const [settings, setSettings] = useState<SystemSettings>({
     maintenance_mode: false,
     email_notifications: true,
     payment_gateway: {
       enabled: true,
       test_mode: true,
+      currency: 'USD'
     },
-    security: {
-      require_2fa: false,
-      max_login_attempts: 5,
-    },
+    pricing: {
+      tokens_per_dollar: 100,
+      minimum_purchase: 10,
+      maximum_purchase: 1000,
+      free_tokens: 50
+    }
   })
 
   useEffect(() => {
@@ -52,22 +56,14 @@ export default function AdminSettings() {
     }
   }
 
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    setSaving(true)
-    setError(null)
-    setSuccess(null)
-
     try {
-      const { error } = await ApiService.updateSystemSettings(settings)
-      if (error) throw error
-
-      setSuccess('Settings updated successfully')
+      await ApiService.updateSystemSettings(settings)
+      toast.success('Settings updated successfully')
     } catch (err) {
-      console.error('Error updating system settings:', err)
-      setError(err instanceof Error ? err.message : 'Failed to update system settings')
-    } finally {
-      setSaving(false)
+      console.error('Error updating settings:', err)
+      toast.error(err instanceof Error ? err.message : 'Failed to update settings')
     }
   }
 
@@ -79,144 +75,195 @@ export default function AdminSettings() {
     )
   }
 
+  if (error) {
+    return (
+      <div className="text-red-500 text-center p-4">
+        {error}
+      </div>
+    )
+  }
+
   return (
-    <div className="space-y-6">
-      <form onSubmit={handleSubmit} className="space-y-6">
-        <Card className="p-6">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">System Settings</h2>
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center">
-                <Bell className="w-5 h-5 text-gray-400 mr-2" />
-                <span className="text-sm font-medium text-gray-700">Email Notifications</span>
-              </div>
-              <label className="relative inline-flex items-center cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={settings.email_notifications}
-                  onChange={(e) => setSettings({ ...settings, email_notifications: e.target.checked })}
-                  className="sr-only peer"
-                />
-                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
-              </label>
-            </div>
-          </div>
-        </Card>
-
-        <Card className="p-6">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">Payment Gateway</h2>
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center">
-                <CreditCard className="w-5 h-5 text-gray-400 mr-2" />
-                <span className="text-sm font-medium text-gray-700">Enable Payments</span>
-              </div>
-              <label className="relative inline-flex items-center cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={settings.payment_gateway.enabled}
-                  onChange={(e) => setSettings({
-                    ...settings,
-                    payment_gateway: {
-                      ...settings.payment_gateway,
-                      enabled: e.target.checked,
-                    },
-                  })}
-                  className="sr-only peer"
-                />
-                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
-              </label>
-            </div>
-            <div className="flex items-center justify-between">
-              <div className="flex items-center">
-                <CreditCard className="w-5 h-5 text-gray-400 mr-2" />
-                <span className="text-sm font-medium text-gray-700">Test Mode</span>
-              </div>
-              <label className="relative inline-flex items-center cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={settings.payment_gateway.test_mode}
-                  onChange={(e) => setSettings({
-                    ...settings,
-                    payment_gateway: {
-                      ...settings.payment_gateway,
-                      test_mode: e.target.checked,
-                    },
-                  })}
-                  className="sr-only peer"
-                />
-                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
-              </label>
-            </div>
-          </div>
-        </Card>
-
-        <Card className="p-6">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">Security Settings</h2>
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center">
-                <Shield className="w-5 h-5 text-gray-400 mr-2" />
-                <span className="text-sm font-medium text-gray-700">Require 2FA</span>
-              </div>
-              <label className="relative inline-flex items-center cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={settings.security.require_2fa}
-                  onChange={(e) => setSettings({
-                    ...settings,
-                    security: {
-                      ...settings.security,
-                      require_2fa: e.target.checked,
-                    },
-                  })}
-                  className="sr-only peer"
-                />
-                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
-              </label>
-            </div>
+    <form onSubmit={handleSubmit} className="space-y-6">
+      <Card className="p-6">
+        <h2 className="text-lg font-semibold text-gray-900 mb-4">System Settings</h2>
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
             <div>
-              <label htmlFor="maxLoginAttempts" className="block text-sm font-medium text-gray-700">
-                Max Login Attempts
-              </label>
-              <input
-                type="number"
-                id="maxLoginAttempts"
-                value={settings.security.max_login_attempts}
-                onChange={(e) => setSettings({
-                  ...settings,
-                  security: {
-                    ...settings.security,
-                    max_login_attempts: Number(e.target.value),
-                  },
-                })}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-purple-500 focus:ring-purple-500 sm:text-sm"
-                min="1"
-                max="10"
-              />
+              <label className="text-sm font-medium text-gray-700">Maintenance Mode</label>
+              <p className="text-sm text-gray-500">Put the system in maintenance mode</p>
             </div>
+            <button
+              type="button"
+              onClick={() => setSettings(prev => ({ ...prev, maintenance_mode: !prev.maintenance_mode }))}
+              className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 ${
+                settings.maintenance_mode ? 'bg-purple-600' : 'bg-gray-200'
+              }`}
+            >
+              <span
+                className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                  settings.maintenance_mode ? 'translate-x-5' : 'translate-x-0'
+                }`}
+              />
+            </button>
           </div>
-        </Card>
 
-        {error && (
-          <div className="text-red-500 text-sm">{error}</div>
-        )}
-
-        {success && (
-          <div className="text-green-500 text-sm">{success}</div>
-        )}
-
-        <div className="flex justify-end">
-          <button
-            type="submit"
-            disabled={saving}
-            className="inline-flex justify-center rounded-md border border-transparent bg-purple-600 py-2 px-4 text-sm font-medium text-white shadow-sm hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 disabled:opacity-50"
-          >
-            <Save className="w-4 h-4 mr-2" />
-            {saving ? 'Saving...' : 'Save Changes'}
-          </button>
+          <div className="flex items-center justify-between">
+            <div>
+              <label className="text-sm font-medium text-gray-700">Email Notifications</label>
+              <p className="text-sm text-gray-500">Enable email notifications for users</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setSettings(prev => ({ ...prev, email_notifications: !prev.email_notifications }))}
+              className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 ${
+                settings.email_notifications ? 'bg-purple-600' : 'bg-gray-200'
+              }`}
+            >
+              <span
+                className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                  settings.email_notifications ? 'translate-x-5' : 'translate-x-0'
+                }`}
+              />
+            </button>
+          </div>
         </div>
-      </form>
-    </div>
+      </Card>
+
+      <Card className="p-6">
+        <h2 className="text-lg font-semibold text-gray-900 mb-4">Payment Settings</h2>
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <label className="text-sm font-medium text-gray-700">Payment Gateway</label>
+              <p className="text-sm text-gray-500">Enable/disable payment processing</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setSettings(prev => ({
+                ...prev,
+                payment_gateway: {
+                  ...prev.payment_gateway,
+                  enabled: !prev.payment_gateway.enabled
+                }
+              }))}
+              className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 ${
+                settings.payment_gateway.enabled ? 'bg-purple-600' : 'bg-gray-200'
+              }`}
+            >
+              <span
+                className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                  settings.payment_gateway.enabled ? 'translate-x-5' : 'translate-x-0'
+                }`}
+              />
+            </button>
+          </div>
+
+          <div className="flex items-center justify-between">
+            <div>
+              <label className="text-sm font-medium text-gray-700">Test Mode</label>
+              <p className="text-sm text-gray-500">Enable test mode for payments</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setSettings(prev => ({
+                ...prev,
+                payment_gateway: {
+                  ...prev.payment_gateway,
+                  test_mode: !prev.payment_gateway.test_mode
+                }
+              }))}
+              className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 ${
+                settings.payment_gateway.test_mode ? 'bg-purple-600' : 'bg-gray-200'
+              }`}
+            >
+              <span
+                className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                  settings.payment_gateway.test_mode ? 'translate-x-5' : 'translate-x-0'
+                }`}
+              />
+            </button>
+          </div>
+        </div>
+      </Card>
+
+      <Card className="p-6">
+        <h2 className="text-lg font-semibold text-gray-900 mb-4">Pricing Settings</h2>
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700">Tokens per Dollar</label>
+            <input
+              type="number"
+              value={settings.pricing.tokens_per_dollar}
+              onChange={(e) => setSettings(prev => ({
+                ...prev,
+                pricing: {
+                  ...prev.pricing,
+                  tokens_per_dollar: parseInt(e.target.value)
+                }
+              }))}
+              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-purple-500 focus:ring-purple-500 sm:text-sm"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700">Minimum Purchase (USD)</label>
+            <input
+              type="number"
+              value={settings.pricing.minimum_purchase}
+              onChange={(e) => setSettings(prev => ({
+                ...prev,
+                pricing: {
+                  ...prev.pricing,
+                  minimum_purchase: parseInt(e.target.value)
+                }
+              }))}
+              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-purple-500 focus:ring-purple-500 sm:text-sm"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700">Maximum Purchase (USD)</label>
+            <input
+              type="number"
+              value={settings.pricing.maximum_purchase}
+              onChange={(e) => setSettings(prev => ({
+                ...prev,
+                pricing: {
+                  ...prev.pricing,
+                  maximum_purchase: parseInt(e.target.value)
+                }
+              }))}
+              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-purple-500 focus:ring-purple-500 sm:text-sm"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700">Free Tokens for New Users</label>
+            <input
+              type="number"
+              value={settings.pricing.free_tokens}
+              onChange={(e) => setSettings(prev => ({
+                ...prev,
+                pricing: {
+                  ...prev.pricing,
+                  free_tokens: parseInt(e.target.value)
+                }
+              }))}
+              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-purple-500 focus:ring-purple-500 sm:text-sm"
+            />
+          </div>
+        </div>
+      </Card>
+
+      <div className="flex justify-end">
+        <button
+          type="submit"
+          className="inline-flex justify-center rounded-md border border-transparent bg-purple-600 py-2 px-4 text-sm font-medium text-white shadow-sm hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2"
+        >
+          Save Changes
+        </button>
+      </div>
+    </form>
   )
 } 
