@@ -1,0 +1,31 @@
+# JewelChat Robots.txt
+User-agent: *
+Disallow: /admin/
+Disallow: /login/
+Disallow: /cart/
+Disallow: /checkout/
+Allow: /
+
+# Crawl-delay settings
+User-agent: Googlebot
+Allow: /
+Crawl-delay: 1
+
+User-agent: Bingbot
+Allow: /
+Crawl-delay: 2
+
+User-agent: DuckDuckBot
+Allow: /
+Crawl-delay: 2
+
+# Prevent media crawlers from loading unnecessary resources
+User-agent: Googlebot-Image
+Disallow: /assets/
+
+# Block archive.org bot
+User-agent: ia_archiver
+Disallow: /
+
+# Sitemap location
+Sitemap: https://jewelchat.in/sitemap.xml
