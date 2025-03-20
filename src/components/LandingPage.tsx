@@ -1,14 +1,38 @@
 import React from 'react';
-import { Diamond, Brain, ImageIcon, Settings, Sparkles, ArrowRight, Gem, TrendingUp, MessageSquare, Crown, Palette, PenTool as Tool, Factory, Globe2, Star, BookOpen, Search, Lightbulb } from 'lucide-react';
+import { Diamond, Brain, ImageIcon, Settings, Sparkles, ArrowRight, Gem, TrendingUp, MessageSquare, Crown, Palette, PenTool as Tool, Factory, Globe2, Star, BookOpen, Search, Lightbulb, LogIn } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
 
 interface LandingPageProps {
   onGetStarted: () => void;
 }
 
 const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted }) => {
+  const { user, loading } = useAuth();
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#1a1a2e] to-[#2d2d44] text-white">
+    <div className="min-h-screen bg-gradient-to-br from-[#1a1a2e] to-[#2d2d44] text-white relative">
+      {!loading && (
+        <div className="fixed top-4 right-4 z-50">
+          {user ? (
+            <Link
+              to="/dashboard"
+              className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 shadow-lg"
+            >
+              <Crown className="w-5 h-5 mr-2" />
+              Dashboard
+            </Link>
+          ) : (
+            <Link
+              to="/login"
+              className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 shadow-lg"
+            >
+              <LogIn className="w-5 h-5 mr-2" />
+              Login
+            </Link>
+          )}
+        </div>
+      )}
       {/* Hero Section */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-20 pb-16">
         <div className="text-center">
