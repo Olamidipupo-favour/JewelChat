@@ -29,6 +29,7 @@ import OpenAI from 'openai';
 import GemstoneDisplay from './components/GemstoneDisplay';
 import HelpPage from './components/HelpPage';
 import LandingPage from './components/LandingPage';
+import { TokenService } from './services/tokenService';
 
 interface Message {
   content: string;
@@ -327,6 +328,9 @@ function App() {
       let response: string;
       let images: string[] | undefined;
 
+      // Check and deduct tokens before making API call
+      await TokenService.checkAndDeductTokens(selectedModel);
+
       if (selectedModelData.type === 'image' || input.toLowerCase().includes('show me') || 
           input.toLowerCase().includes('generate image') || 
           input.toLowerCase().includes('create image')) {
@@ -361,6 +365,11 @@ function App() {
         timestamp: new Date()
       };
       setMessages(prev => [...prev, errorMessage]);
+      
+      // Log API error if it's a token-related error
+      if (error instanceof Error && (error.message.includes('tokens') || error.message.includes('logged in'))) {
+        await TokenService.logApiError(selectedModel, error.message);
+      }
     } finally {
       setIsLoading(false);
       setThinkingAnecdote('');

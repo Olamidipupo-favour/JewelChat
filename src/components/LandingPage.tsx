@@ -1,14 +1,50 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Diamond, Brain, ImageIcon, Settings, Sparkles, ArrowRight, Gem, TrendingUp, MessageSquare, Crown, Palette, PenTool as Tool, Factory, Globe2, Star, BookOpen, Search, Lightbulb, LogIn } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { TokenService } from '../services/tokenService';
 
 interface LandingPageProps {
   onGetStarted: () => void;
 }
 
+interface TokenCosts {
+  [key: string]: number;
+}
+
 const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted }) => {
   const { user, loading } = useAuth();
+  const [tokenCosts, setTokenCosts] = useState<TokenCosts>({});
+  const [loadingCosts, setLoadingCosts] = useState(true);
+
+  useEffect(() => {
+    const fetchTokenCosts = async () => {
+      try {
+        const costs: TokenCosts = {};
+        const models = ['gpt-4', 'gpt-3.5-turbo', 'deepseek-chat', 'stable-diffusion-xl'];
+        
+        for (const model of models) {
+          costs[model] = await TokenService.getTokenCost(model);
+        }
+        
+        setTokenCosts(costs);
+      } catch (error) {
+        console.error('Error fetching token costs:', error);
+      } finally {
+        setLoadingCosts(false);
+      }
+    };
+
+    fetchTokenCosts();
+  }, []);
+
+  const handleFeatureClick = (feature: string) => {
+    if (!user) {
+      window.location.href = '/login';
+      return;
+    }
+    onGetStarted();
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#1a1a2e] to-[#2d2d44] text-white relative">
@@ -84,6 +120,9 @@ const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted }) => {
             <p className="text-gray-300">
               Powered by state-of-the-art language models for expert jewelry knowledge and market insights.
             </p>
+            <div className="mt-4 text-sm text-purple-400">
+              Cost: {loadingCosts ? 'Loading...' : `${tokenCosts['gpt-4']} tokens per request`}
+            </div>
           </div>
           <div className="bg-white/5 backdrop-blur-lg rounded-lg p-6">
             <ImageIcon className="w-8 h-8 text-purple-400 mb-4" />
@@ -91,6 +130,9 @@ const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted }) => {
             <p className="text-gray-300">
               Create stunning jewelry designs instantly with our advanced image generation model.
             </p>
+            <div className="mt-4 text-sm text-purple-400">
+              Cost: {loadingCosts ? 'Loading...' : `${tokenCosts['stable-diffusion-xl']} tokens per image`}
+            </div>
           </div>
           <div className="bg-white/5 backdrop-blur-lg rounded-lg p-6">
             <Settings className="w-8 h-8 text-purple-400 mb-4" />
@@ -98,6 +140,9 @@ const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted }) => {
             <p className="text-gray-300">
               Expert guidance on CAD/CAM, casting, and manufacturing processes.
             </p>
+            <div className="mt-4 text-sm text-purple-400">
+              Cost: {loadingCosts ? 'Loading...' : `${tokenCosts['gpt-3.5-turbo']} tokens per request`}
+            </div>
           </div>
           <div className="bg-white/5 backdrop-blur-lg rounded-lg p-6">
             <Sparkles className="w-8 h-8 text-purple-400 mb-4" />
@@ -105,6 +150,9 @@ const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted }) => {
             <p className="text-gray-300">
               Real-time market insights and investment recommendations for gemstones.
             </p>
+            <div className="mt-4 text-sm text-purple-400">
+              Cost: {loadingCosts ? 'Loading...' : `${tokenCosts['deepseek-chat']} tokens per request`}
+            </div>
           </div>
         </div>
       </div>
