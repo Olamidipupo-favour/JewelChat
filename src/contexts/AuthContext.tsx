@@ -170,28 +170,53 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
       console.log('3. Auth user created successfully:', data.user?.id)
 
+      // Wait a short moment to ensure the auth user is fully created
+      await new Promise(resolve => setTimeout(resolve, 1000))
+
       // Create user profile with 'user' role
       if (data.user) {
         console.log('4. Creating user profile...')
         const profileStartTime = performance.now()
-        const { error: profileError } = await supabase
+        
+        // First check if the profile already exists
+        const { data: existingProfile, error: checkError } = await supabase
           .from('users')
-          .insert([
-            {
-              id: data.user.id,
-              email: data.user.email,
-              role: 'user',
-              tokens: 0,
-              created_at: new Date().toISOString(),
-              updated_at: new Date().toISOString(),
-            }
-          ])
+          .select('*')
+          .eq('id', data.user.id)
+          .single()
 
-        if (profileError) {
-          console.error('Profile creation error:', profileError)
-          throw profileError
+        if (checkError && checkError.code !== 'PGRST116') {
+          console.error('Error checking existing profile:', checkError)
+          throw checkError
         }
-        console.log(`5. Profile created in ${(performance.now() - profileStartTime).toFixed(2)}ms`)
+
+        // Only create the profile if it doesn't exist
+        if (!existingProfile) {
+          const { error: insertError } = await supabase
+            .from('users')
+            .insert([
+              {
+                id: data.user.id,
+                email: data.user.email,
+                role: 'user',
+                tokens: 0,
+                created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString(),
+                is_active: true
+              }
+            ])
+
+          if (insertError) {
+            console.error('Profile creation error:', insertError)
+            // If the profile creation fails, we should still continue
+            // The profile will be created when the user first logs in
+            console.log('Profile creation failed, will be created on first login')
+          } else {
+            console.log(`5. Profile created in ${(performance.now() - profileStartTime).toFixed(2)}ms`)
+          }
+        } else {
+          console.log('Profile already exists')
+        }
 
         // Fetch the profile immediately
         console.log('6. Fetching created profile...')
