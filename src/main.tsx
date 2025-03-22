@@ -10,6 +10,7 @@ import { UserDashboardLayout } from './components/user/DashboardLayout'
 import { Login } from './components/auth/Login'
 import SignUp from './components/auth/SignUp'
 import ForgotPassword from './components/auth/ForgotPassword'
+import ResetPassword from './components/auth/ResetPassword'
 import App from './App'
 import AdminOverview from './components/admin/Overview'
 import UserOverview from './components/user/Overview'
@@ -57,6 +58,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
             <Route path="/login" element={<Login />} />
             <Route path="/signup" element={<SignUp />} />
             <Route path="/forgot-password" element={<ForgotPassword />} />
+            <Route path="/reset-password" element={<ResetPassword />} />
           </Route>
 
           {/* Admin Routes */}

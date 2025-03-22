@@ -1,21 +1,80 @@
-import { useState } from 'react'
-import { useNavigate, Link } from 'react-router-dom'
+import { useState, useEffect } from 'react'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext'
 import { toast } from 'react-hot-toast'
 
-export default function SignUp() {
-  const [email, setEmail] = useState('')
+export default function ResetPassword() {
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const navigate = useNavigate()
-  const { signUp } = useAuth()
+  const location = useLocation()
+  const { supabase } = useAuth()
+
+  useEffect(() => {
+    const handleReset = async () => {
+      // Check if we have a hash fragment
+      const hash = location.hash
+      if (!hash) {
+        toast.error('Invalid or expired reset link')
+        navigate('/login', { replace: true })
+        return
+      }
+
+      // Check for error in the hash
+      if (hash.includes('error=')) {
+        const errorParams = new URLSearchParams(hash.substring(1))
+        const errorCode = errorParams.get('error_code')
+        const errorDescription = errorParams.get('error_description')
+
+        let errorMessage = 'Invalid or expired reset link'
+        if (errorCode === 'otp_expired') {
+          errorMessage = 'This password reset link has expired. Please request a new one.'
+        } else if (errorDescription) {
+          errorMessage = decodeURIComponent(errorDescription)
+        }
+
+        toast.error(errorMessage)
+        navigate('/login', { replace: true })
+        return
+      }
+
+      // Extract the access token from the hash
+      const accessToken = hash.split('access_token=')[1]?.split('&')[0]
+      if (!accessToken) {
+        toast.error('Invalid or expired reset link')
+        navigate('/login', { replace: true })
+        return
+      }
+
+      try {
+        // Set the session with the access token
+        const { error: sessionError } = await supabase.auth.setSession({
+          access_token: accessToken,
+          refresh_token: ''
+        })
+
+        if (sessionError) {
+          console.error('Error setting session:', sessionError)
+          toast.error('Invalid or expired reset link')
+          navigate('/login', { replace: true })
+          return
+        }
+      } catch (err) {
+        console.error('Error handling hash change:', err)
+        toast.error('Invalid or expired reset link')
+        navigate('/login', { replace: true })
+      }
+    }
+
+    handleReset()
+  }, [navigate, location.hash, supabase.auth])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    setError(null)
     setLoading(true)
-    setError('')
 
     if (password !== confirmPassword) {
       setError('Passwords do not match')
@@ -23,39 +82,30 @@ export default function SignUp() {
       return
     }
 
-    try {
-      console.log('Starting signup process...')
-      await signUp(email, password)
-      console.log('Signup successful, showing confirmation message...')
-      
-      // Show success message with email confirmation notice
-      toast.success(
-        <div>
-          <p>Account created successfully!</p>
-          <p className="text-sm mt-1">Please check your email to verify your account.</p>
-          <p className="text-xs mt-1 text-gray-500">Check your spam folder if you don't see it.</p>
-        </div>,
-        { duration: 5000 }
-      )
+    if (password.length < 6) {
+      setError('Password must be at least 6 characters long')
+      setLoading(false)
+      return
+    }
 
-      // Add a small delay to ensure the toast is visible
+    try {
+      const { error } = await supabase.auth.updateUser({
+        password: password
+      })
+
+      if (error) throw error
+
+      toast.success('Password updated successfully!')
+      
+      // Redirect to login page after 2 seconds
       setTimeout(() => {
         navigate('/login', { replace: true })
       }, 2000)
     } catch (err) {
-      console.error('Signup error:', err)
-      const errorMessage = err instanceof Error ? err.message : 'An error occurred during signup'
-      
-      // Handle specific error cases
-      if (errorMessage.includes('email already registered')) {
-        toast.error('This email is already registered. Please try logging in instead.')
-      } else if (errorMessage.includes('password')) {
-        toast.error('Password must be at least 6 characters long')
-      } else {
-        toast.error(errorMessage)
-      }
-      
+      console.error('Error resetting password:', err)
+      const errorMessage = err instanceof Error ? err.message : 'Failed to reset password'
       setError(errorMessage)
+      toast.error(errorMessage)
     } finally {
       setLoading(false)
     }
@@ -66,63 +116,40 @@ export default function SignUp() {
       <div className="max-w-md w-full space-y-8">
         <div>
           <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
-            Create your account
+            Reset your password
           </h2>
           <p className="mt-2 text-center text-sm text-gray-600">
-            Already have an account?{' '}
-            <Link to="/login" className="font-medium text-purple-600 hover:text-purple-500">
-              Sign in
-            </Link>
+            Please enter your new password below.
           </p>
         </div>
         <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
           <div className="rounded-md shadow-sm -space-y-px">
             <div>
-              <label htmlFor="email-address" className="sr-only">
-                Email address
-              </label>
-              <input
-                id="email-address"
-                name="email"
-                type="email"
-                autoComplete="email"
-                required
-                className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-t-md focus:outline-none focus:ring-purple-500 focus:border-purple-500 focus:z-10 sm:text-sm"
-                placeholder="Email address"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-              />
-            </div>
-            <div>
               <label htmlFor="password" className="sr-only">
-                Password
+                New Password
               </label>
               <input
                 id="password"
                 name="password"
                 type="password"
-                autoComplete="new-password"
                 required
-                minLength={6}
-                className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-purple-500 focus:border-purple-500 focus:z-10 sm:text-sm"
-                placeholder="Password (min. 6 characters)"
+                className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-t-md focus:outline-none focus:ring-purple-500 focus:border-purple-500 focus:z-10 sm:text-sm"
+                placeholder="New Password (minimum 6 characters)"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
               />
             </div>
             <div>
               <label htmlFor="confirm-password" className="sr-only">
-                Confirm Password
+                Confirm New Password
               </label>
               <input
                 id="confirm-password"
                 name="confirm-password"
                 type="password"
-                autoComplete="new-password"
                 required
-                minLength={6}
                 className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-b-md focus:outline-none focus:ring-purple-500 focus:border-purple-500 focus:z-10 sm:text-sm"
-                placeholder="Confirm Password"
+                placeholder="Confirm New Password"
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
               />
@@ -156,10 +183,10 @@ export default function SignUp() {
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                   </svg>
-                  Creating account...
+                  Updating password...
                 </div>
               ) : (
-                'Create account'
+                'Update Password'
               )}
             </button>
           </div>

@@ -1,6 +1,7 @@
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext'
+import { toast } from 'react-hot-toast'
 
 export default function ForgotPassword() {
   const [email, setEmail] = useState('')
@@ -8,6 +9,7 @@ export default function ForgotPassword() {
   const [success, setSuccess] = useState(false)
   const [loading, setLoading] = useState(false)
   const { resetPassword } = useAuth()
+  const navigate = useNavigate()
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -18,8 +20,23 @@ export default function ForgotPassword() {
     try {
       await resetPassword(email)
       setSuccess(true)
+      toast.success(
+        <div>
+          <p>Password reset email sent!</p>
+          <p className="text-sm mt-1">Please check your inbox.</p>
+          <p className="text-xs mt-1 text-gray-500">Check your spam folder if you don't see it.</p>
+        </div>,
+        { duration: 5000 }
+      )
+      
+      // Redirect to login page after 2 seconds
+      setTimeout(() => {
+        navigate('/login', { replace: true })
+      }, 2000)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to send reset email')
+      const errorMessage = err instanceof Error ? err.message : 'Failed to send reset email'
+      setError(errorMessage)
+      toast.error(errorMessage)
     } finally {
       setLoading(false)
     }

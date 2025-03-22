@@ -1,11 +1,13 @@
 import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext'
+import { toast } from 'react-hot-toast'
 
 export function Login() {
   const navigate = useNavigate()
-  const { signIn } = useAuth()
+  const { signIn, resendConfirmationEmail } = useAuth()
   const [loading, setLoading] = useState(false)
+  const [resendLoading, setResendLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [formData, setFormData] = useState({
     email: '',
@@ -18,6 +20,31 @@ export function Login() {
     setError(null) // Clear error when user types
   }
 
+  const handleResendConfirmation = async () => {
+    if (!formData.email) {
+      toast.error('Please enter your email address first')
+      return
+    }
+
+    setResendLoading(true)
+    try {
+      await resendConfirmationEmail(formData.email)
+      toast.success(
+        <div>
+          <p>Confirmation email sent!</p>
+          <p className="text-sm mt-1">Please check your inbox.</p>
+          <p className="text-xs mt-1 text-gray-500">Check your spam folder if you don't see it.</p>
+        </div>,
+        { duration: 5000 }
+      )
+    } catch (err) {
+      console.error('Error resending confirmation:', err)
+      toast.error('Failed to resend confirmation email. Please try again.')
+    } finally {
+      setResendLoading(false)
+    }
+  }
+
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     setLoading(true)
@@ -28,7 +55,44 @@ export function Login() {
       navigate('/dashboard', { replace: true })
     } catch (err) {
       console.error('Error signing in:', err)
-      setError(err instanceof Error ? err.message : 'Failed to sign in')
+      const errorMessage = err instanceof Error ? err.message : 'Failed to sign in'
+      
+      // Handle specific error cases
+      if (errorMessage.includes('Email not confirmed')) {
+        toast.error(
+          <div>
+            <p>Please verify your email address first.</p>
+            <p className="text-sm mt-1">Check your inbox for the confirmation link.</p>
+            <p className="text-xs mt-1 text-gray-500">Check your spam folder if you don't see it.</p>
+            <button
+              onClick={handleResendConfirmation}
+              disabled={resendLoading}
+              className="mt-2 px-4 py-2 text-sm font-medium text-white bg-purple-600 rounded-md hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {resendLoading ? (
+                <div className="flex items-center">
+                  <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  Sending...
+                </div>
+              ) : (
+                'Resend Confirmation Email'
+              )}
+            </button>
+          </div>,
+          { duration: 10000 }
+        )
+      } else if (errorMessage.includes('Invalid login credentials')) {
+        toast.error('Invalid email or password. Please try again.')
+      } else if (errorMessage.includes('Too many requests')) {
+        toast.error('Too many login attempts. Please try again later.')
+      } else {
+        toast.error(errorMessage)
+      }
+      
+      setError(errorMessage)
     } finally {
       setLoading(false)
     }

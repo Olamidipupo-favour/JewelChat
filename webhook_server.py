@@ -13,12 +13,12 @@ app = Flask(__name__)
 
 # Initialize Supabase client
 supabase: Client = create_client(
-    os.getenv('SUPABASE_URL'),
-    os.getenv('SUPABASE_SERVICE_KEY')
+    os.getenv('VITE_SUPABASE_URL'),
+    os.getenv('VITE_SUPABASE_ANON_KEY')
 )
 
 # Razorpay webhook secret
-RAZORPAY_WEBHOOK_SECRET = os.getenv('RAZORPAY_WEBHOOK_SECRET')
+RAZORPAY_WEBHOOK_SECRET = os.getenv('VITE_RAZORPAY_WEBHOOK_SECRET')
 
 def verify_razorpay_signature(payload: str, signature: str) -> bool:
     """Verify the Razorpay webhook signature."""

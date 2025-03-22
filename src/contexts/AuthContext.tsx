@@ -14,6 +14,9 @@ interface AuthContextType {
   signOut: () => Promise<void>
   fetchProfile: (userId: string) => Promise<void>
   updateProfile: (updates: { email?: string }) => Promise<UserProfile>
+  resendConfirmationEmail: (email: string) => Promise<void>
+  resetPassword: (email: string) => Promise<void>
+  supabase: typeof supabase
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
@@ -254,8 +257,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   async function resetPassword(email: string) {
-    const { error } = await supabase.auth.resetPasswordForEmail(email)
-    if (error) throw error
+    console.log('Starting password reset process...')
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/reset-password`
+      })
+      if (error) throw error
+    } catch (err) {
+      console.error('Error resetting password:', err)
+      throw err
+    }
   }
 
   const updateProfile = async (updates: { email?: string }) => {
@@ -275,6 +286,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return data
   }
 
+  async function resendConfirmationEmail(email: string) {
+    console.log('Starting resend confirmation email process...')
+    try {
+      const { error } = await supabase.auth.resend({
+        type: 'signup',
+        email
+      })
+      if (error) throw error
+    } catch (err) {
+      console.error('Error resending confirmation email:', err)
+      throw err
+    }
+  }
+
   const value = {
     user,
     profile,
@@ -285,6 +310,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     resetPassword,
     updateProfile,
     fetchProfile,
+    resendConfirmationEmail,
+    supabase
   }
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
