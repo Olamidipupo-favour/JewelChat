@@ -29,6 +29,7 @@ import OpenAI from 'openai';
 import GemstoneDisplay from './GemstoneDisplay';
 import HelpPage from './HelpPage';
 import { useAuth } from '../contexts/AuthContext';
+import { ApiService } from '../services/api';
 
 interface Message {
   content: string;
@@ -319,6 +320,7 @@ export default function Chat() {
       const selectedModelData = MODELS.find(m => m.id === selectedModel)!;
       let response: string;
       let images: string[] | undefined;
+      let tokensUsed = 0;
 
       if (selectedModelData.type === 'image' || input.toLowerCase().includes('show me') || 
           input.toLowerCase().includes('generate image') || 
@@ -328,14 +330,20 @@ export default function Chat() {
         if (imageUrl) {
           images = [imageUrl];
           response = "Here's the generated image based on your request:";
+          tokensUsed = 1000; // Approximate tokens for image generation
+          await ApiService.trackApiUsage('stable_diffusion', tokensUsed);
         } else {
           response = "I apologize, but I couldn't generate the image. Please try again.";
         }
         setIsGeneratingImage(false);
       } else if (selectedModelData.api === 'deepseek') {
         response = await generateDeepSeekResponse(input, import.meta.env.VITE_DEEPSEEK_API_KEY);
+        tokensUsed = Math.ceil(input.length / 4) + Math.ceil(response.length / 4); // Approximate token count
+        await ApiService.trackApiUsage('chat', tokensUsed);
       } else {
         response = await generateOpenAIResponse([...messages, userMessage], selectedModel, import.meta.env.VITE_OPENAI_API_KEY);
+        tokensUsed = Math.ceil(input.length / 4) + Math.ceil(response.length / 4); // Approximate token count
+        await ApiService.trackApiUsage(selectedModel === 'gpt-4' ? 'gpt4' : 'chat', tokensUsed);
       }
 
       const aiResponse: Message = {
