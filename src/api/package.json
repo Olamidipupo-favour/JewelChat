@@ -5,9 +5,9 @@
   "type": "module",
   "main": "dist/server.js",
   "scripts": {
-    "build": "node api.js && tsc",
-    "start": "node api.js && node -r dotenv/config dist/server.js",
-    "dev": "node api.js && node --loader ts-node/esm -r dotenv/config server.ts"
+    "build": "node init && tsc",
+    "start": "node init && node -r dotenv/config dist/server.js",
+    "dev": "node init && node --loader ts-node/esm -r dotenv/config server.ts"
   },
   "dependencies": {
     "cors": "^2.8.5",
